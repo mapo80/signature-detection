@@ -397,6 +397,5 @@ FodyWeavers.xsd
 *.sln.iml
 
 ProcessDump/obj
-dataset/
 
 *.onnx
