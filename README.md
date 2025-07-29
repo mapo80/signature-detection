@@ -189,3 +189,24 @@ dotnet run --project tools/DrawBoundingBoxes/DrawBoundingBoxes.csproj
 Download `yolov8s.onnx` from the
 [tech4humans/yolov8s-signature-detector](https://huggingface.co/tech4humans/yolov8s-signature-detector)
 repository (an authenticated HuggingFace account may be required) and place it in the project root. When the file is present the tool will also run the YOLOv8s model and write its annotated images to `samples/yolov8s/`.
+
+## YOLOv8s Python inference
+
+The repository also includes `yolov8_inference.py` which performs inference using the `ultralytics` package and draws both the predicted boxes and the ground truth labels. The script expects `yolov8s.onnx` in the `model/` directory and reads images from `dataset/`. Annotated results are written to `samples/yolov8s_py/`.
+
+Run it with:
+
+```bash
+python yolov8_inference.py
+```
+
+## YOLOv8s C# inference
+
+If you prefer a .NET solution the project includes `tools/YoloV8Inference`. It
+loads `yolov8s.onnx` and writes annotated images to `samples/yolov8s/`.
+
+Run it with:
+
+```bash
+dotnet run --project tools/YoloV8Inference/YoloV8Inference.csproj
+```
