@@ -70,8 +70,12 @@ The `tools/DatasetReport` utility was run on a subset of **20 images** from each
 ### Impact of post-processing
 | Dataset | Baseline det | Robust det | Avg Baseline | Avg Robust |
 |---------|-------------:|-----------:|------------:|-----------:|
-| dataset1 | 35 | 7 | 350 | 306 |
-| dataset2 | 22 | 18 | 364 | 298 |
+| dataset1 | 35 | 7 | 350 | 342 |
+| dataset2 | 22 | 18 | 364 | 331 |
+
+The additional NMS step collapses nearby boxes, reducing spurious duplicates
+while keeping the overall recall stable. Average inference times include the
+extra filtering pass.
 
 ## Configurazione del filtro
 
