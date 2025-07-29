@@ -75,16 +75,10 @@ The `tools/DatasetReport` utility was run on a subset of **20 images** from each
 
 ## Configurazione del filtro
 
-| Parametro | Valore | Intervallo esplorato |
-|-----------|-------:|--------------------:|
-| `A_min`   | 1200 px² | 2000–10000 |
-| `A_max`   | 150000 px² | 30000–80000 |
-| `AR_min`  | 0.6 | 1.0–2.0 |
-| `AR_max`  | 6.5 | 4.0–8.0 |
-| `\sigma`  | 0.6 | 0.3–1.0 |
-| `D_scale` | 180 px | 100–300 |
-| `\alpha`  | 0.6 | 0.5–0.7 |
-| `N_min`   | 2 | – |
+| Pipeline | A_min | A_max | AR_min | AR_max | σ | D_scale | α | N_min |
+|----------|------:|------:|-------:|-------:|---:|--------:|---:|------:|
+| **DETR-only** | 1 200 | 150 000 | 0.6 | 6.5 | 0.6 | 180 px | 0.6 | 2 |
+| **Ensemble**  | 800 | 200 000 | 0.5 | 8.0 | 0.4 | 120 px | 0.5 | 1 |
 
 `\alpha` moltiplica la mediana degli score dopo il filtro robusto per ottenere la soglia dinamica dell'immagine. Se il numero di box rimanenti è inferiore a `N_min` viene applicato il semplice NMS.
 
@@ -93,8 +87,9 @@ Quando il file `yolov8s.onnx` è presente, il detector può combinare le predizi
 
 ## Ottimizzazione Ensemble Condizionale
 
-- **Gating rules**: l'ensemble viene eseguito solo se il numero di box DETR è inferiore a `T_low = 2` oppure lo score medio è sotto `S_low = 0.5`.
-- In questo test l'ensemble si è attivato sul **100%** delle immagini di `dataset1` e sul **90%** di `dataset2`.
+- **Gating rules**: l'ensemble viene eseguito solo se `count_DETR < T_low` **e** la deviazione standard degli score è inferiore a `V_high`.
+- Con `T_low = 1` e `V_high = 0.1` l'ensemble si è attivato sul **100%** delle immagini di `dataset1` e sul **90%** di `dataset2`.
+ - Se dopo il filtro robusto non rimane alcuna box, il detector torna ai risultati DETR (o YOLOv8) filtrati solo via NMS.
 
 ### Tuning filtro robusto nell'ensemble
 
@@ -414,12 +409,12 @@ box prima di ricorrere al fallback NMS, così da preservare una copertura minima
 
 | Variante | Dataset | Detections | Avg ms |
 |---------|---------|-----------:|-------:|
-| DETR | dataset1 | 11 | 366 |
-| YOLOv8 | dataset1 | 114 | 241 |
-| Ensemble condizionale | dataset1 | 6 | 491 |
-| DETR | dataset2 | 17 | 353 |
-| YOLOv8 | dataset2 | 174 | 240 |
-| Ensemble condizionale | dataset2 | 18 | 528 |
+| DETR | dataset1 | 11 | 334 |
+| YOLOv8 | dataset1 | 114 | 207 |
+| Ensemble condizionale | dataset1 | 6 | 440 |
+| DETR | dataset2 | 17 | 345 |
+| YOLOv8 | dataset2 | 174 | 157 |
+| Ensemble condizionale | dataset2 | 18 | 443 |
 
 L'ensemble condizionale si è attivato su **20/20** immagini di `dataset1` e su **18/20** di `dataset2`. Le fusioni WBF sono state accettate nel **58%** dei casi su `dataset1` e nel **94%** su `dataset2`.
 
