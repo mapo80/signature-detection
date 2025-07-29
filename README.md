@@ -178,10 +178,14 @@ The table below shows detection counts for 20 sample images using both the origi
 
 ## Sample images
 
-The `samples/` directory contains these 20 images annotated with both the ground
-truth bounding box (red) and the prediction from the .NET SDK (green). Generate
-them with:
+The `samples/detr` and `samples/yolov8s` directories contain 20 sample images each. Every image is annotated with the ground truth box (red) and the prediction from the respective model. Generate them with:
 
 ```bash
 dotnet run --project tools/DrawBoundingBoxes/DrawBoundingBoxes.csproj
 ```
+
+## YOLOv8s comparison
+
+Download `yolov8s.onnx` from the
+[tech4humans/yolov8s-signature-detector](https://huggingface.co/tech4humans/yolov8s-signature-detector)
+repository (an authenticated HuggingFace account may be required) and place it in the project root. When the file is present the tool will also run the YOLOv8s model and write its annotated images to `samples/yolov8s/`.
