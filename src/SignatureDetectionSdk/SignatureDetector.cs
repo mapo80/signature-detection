@@ -93,4 +93,64 @@ public class SignatureDetector : IDisposable
         RobustParams? parameters = null)
         => Predict(imagePath, out _, scoreThreshold, parameters);
 
+    public float[][] PredictSimple(string imagePath,
+        out bool usedFallback,
+        float confThreshold = 0.6f,
+        float fallbackThreshold = 0.3f,
+        RobustParams? geometry = null)
+    {
+        using var image = SKBitmap.Decode(imagePath);
+        using var resized = image.Resize(new SKImageInfo(InputSize, InputSize), SKFilterQuality.High);
+        var tensor = new DenseTensor<float>(new[] { 1, 3, InputSize, InputSize });
+
+        for (int y = 0; y < InputSize; y++)
+        {
+            for (int x = 0; x < InputSize; x++)
+            {
+                var color = resized.GetPixel(x, y);
+                float r = color.Red / 255f;
+                float g = color.Green / 255f;
+                float b = color.Blue / 255f;
+                tensor[0, 0, y, x] = (r - _mean[0]) / _std[0];
+                tensor[0, 1, y, x] = (g - _mean[1]) / _std[1];
+                tensor[0, 2, y, x] = (b - _mean[2]) / _std[2];
+            }
+        }
+
+        var inputs = new List<NamedOnnxValue>
+        {
+            NamedOnnxValue.CreateFromTensor("pixel_values", tensor)
+        };
+        using IDisposableReadOnlyCollection<DisposableNamedOnnxValue> results = _session.Run(inputs);
+        var logits = results.First(r => r.Name == "logits").AsTensor<float>();
+        var boxes = results.First(r => r.Name == "boxes").AsTensor<float>();
+
+        var scores = PostProcessing.FilterByScore(logits, confThreshold);
+        var dets = PostProcessing.ToPixelBoxes(boxes, resized.Width, resized.Height, scores);
+        if (geometry.HasValue)
+            dets = PostProcessing.FilterByGeometry(dets,
+                geometry.Value.AreaMin,
+                geometry.Value.AreaMax,
+                geometry.Value.ArMin,
+                geometry.Value.ArMax);
+
+        var nms = PostProcessing.Nms(dets, 0.5f);
+        usedFallback = false;
+        if (nms.Count == 0 && fallbackThreshold < confThreshold)
+        {
+            usedFallback = true;
+            scores = PostProcessing.FilterByScore(logits, fallbackThreshold);
+            dets = PostProcessing.ToPixelBoxes(boxes, resized.Width, resized.Height, scores);
+            if (geometry.HasValue)
+                dets = PostProcessing.FilterByGeometry(dets,
+                    geometry.Value.AreaMin,
+                    geometry.Value.AreaMax,
+                    geometry.Value.ArMin,
+                    geometry.Value.ArMax);
+            nms = PostProcessing.Nms(dets, 0.5f);
+        }
+
+        return nms.ToArray();
+    }
+
 }

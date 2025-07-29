@@ -72,6 +72,13 @@ The `tools/DatasetReport` utility was run on a subset of **20 images** from each
 |---------|-------------:|-----------:|------------:|-----------:|
 | dataset1 | 35 | 7 | 350 | 307 |
 | dataset2 | 22 | 86 | 315 | 314 |
+| dataset2 light | 22 | 89 | 315 | 265 |
+
+The *light* pipeline for `dataset2` skips geometry and Soft‑NMS. It keeps
+queries with softmax probability above **0.6**, converts boxes to pixels and
+applies a single NMS at IoU 0.5. If no box survives, the threshold is lowered
+to 0.3 and NMS is repeated. This simple approach speeds up inference to
+**265 ms** on average while detecting 89 boxes across 100 images.
 
 The updated post‑processing first converts the DETR logits to class
 probabilities, discarding low‑confidence queries. The remaining boxes are

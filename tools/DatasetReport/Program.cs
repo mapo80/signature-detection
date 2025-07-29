@@ -84,10 +84,18 @@ foreach (var img in images)
         var p = dataset == "dataset2" ? SignatureDetector.Dataset2Params : SignatureDetector.EnsembleParams;
         preds = y.Predict(img, 0.25f, p);
     }
-    else if (detectorObj is SignatureDetector d)
-    {
-        var p = dataset == "dataset2" ? SignatureDetector.Dataset2Params : SignatureDetector.DetrParams;
-        preds = d.Predict(img, out _, 0.1f, p);
+   else if (detectorObj is SignatureDetector d)
+   {
+        if (dataset == "dataset2")
+        {
+            var p = SignatureDetector.Dataset2Params;
+            preds = d.PredictSimple(img, out _, 0.6f, 0.3f, p);
+        }
+        else
+        {
+            var p = SignatureDetector.DetrParams;
+            preds = d.Predict(img, out _, 0.1f, p);
+        }
     }
     else if (detectorObj is EnsembleDetector ensDet)
         preds = ensDet.Predict(img);
