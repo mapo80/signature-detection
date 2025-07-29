@@ -240,3 +240,69 @@ Run it with:
 ```bash
 dotnet run --project tools/YoloV8Inference/YoloV8Inference.csproj
 ```
+
+## ONNX quantization
+
+Dynamic quantization was tested using **onnxruntime 1.17.3**. Because the CPU provider does not support `ConvInteger`, only `MatMul` operators were quantized. The command used was:
+
+```python
+from onnxruntime.quantization import quantize_dynamic, QuantType
+quantize_dynamic("conditional_detr_signature.onnx", "conditional_detr_signature_q_mm.onnx",
+                 weight_type=QuantType.QInt8, op_types_to_quantize=["MatMul"])
+```
+
+This produced a model of **113 MB** (the original is 167 MB). Inference was evaluated on 20 images from each dataset using the Python preprocessing pipeline. Results:
+
+| Dataset | Original avg ms | Quantized avg ms | Detection diff |
+|---------|----------------:|-----------------:|---------------:|
+| dataset1 | 229 | 218 | -1 |
+| dataset2 | 237 | 207 | -1 |
+
+The quantized model is slightly faster but the number of detected boxes differed by at most one compared to the FP32 model.
+
+## Rimozione di nodi e metadata inutilizzati
+
+Per semplificare ulteriormente il grafo è possibile applicare il *constant folding* e rimuovere inizializzatori non referenziati o `doc_string` superflui. Un modo semplice consiste nell'utilizzare [onnx-simplifier](https://github.com/daquexian/onnx-simplifier).
+
+Installarlo e generare il modello ottimizzato con:
+
+```bash
+pip install onnx-simplifier
+python3 -m onnxsim model.onnx model_s.onnx
+```
+
+Dopo aver ricombinato il file ONNX la dimensione del modello \u00e8 di **167 MB**. L'esecuzione su 20 immagini dei dataset ha prodotto i seguenti tempi medi:
+
+| Dataset | Avg ms | Detections |
+|---------|-------:|-----------:|
+| dataset1 | 350 | 35 |
+| dataset2 | 364 | 22 |
+
+L'ottimizzazione con **onnx-simplifier** richiede la compilazione del pacchetto `onnxsim`, ma nel contesto corrente l'installazione fallisce. Una pulizia manuale di `doc_string` e initializer inutilizzati non ha ridotto la dimensione (resta 167 MB) e non sono state misurate variazioni nei tempi di inferenza.
+
+## Ottimizzazione del grafo
+
+Per migliorare la velocità di inferenza sono stati testati i pass di fusione e ottimizzazione di ONNX Runtime e del pacchetto `onnxoptimizer`.
+
+```python
+import onnxruntime as ort
+so = ort.SessionOptions()
+so.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+sess = ort.InferenceSession("model.onnx", sess_options=so)
+
+import onnx, onnxoptimizer
+model = onnx.load("model.onnx")
+passes = ["eliminate_nop_dropout", "fuse_bn_into_conv", "fuse_matmul_add_bias_into_gemm"]
+optimized_model = onnxoptimizer.optimize(model, passes)
+onnx.save(optimized_model, "model_opt.onnx")
+```
+
+La dimensione del file rimane **167 MB**. L'esecuzione su 20 immagini per ciascun dataset ha dato i seguenti risultati medi (ms):
+
+| Dataset | Baseline | ORT_ENABLE_ALL | Optimizer+ORT | Diff boxes |
+|---------|---------:|---------------:|--------------:|-----------:|
+| dataset1 | 360 | 331 | 336 | 0 |
+| dataset2 | 332 | 346 | 351 | 0 |
+
+Il numero di box previsti non cambia rispetto al modello originale. I pass di ONNX Runtime riducono leggermente la latenza su `dataset1` (-28 ms) ma peggiorano `dataset2` (+14 ms). L'ulteriore ottimizzazione con `onnxoptimizer` non porta benefici apprezzabili.
+

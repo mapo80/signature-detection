@@ -1,6 +1,7 @@
 using SignatureDetectionSdk;
 using System.Linq;
 using System.Diagnostics;
+using Microsoft.ML.OnnxRuntime;
 
 string Root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../"));
 string OnnxPath = Path.Combine(Root, "conditional_detr_signature.onnx");
@@ -31,10 +32,12 @@ float IoU(float x1, float y1, float x2, float y2, float x1b, float y1b, float x2
 
 string dataset = "dataset1";
 bool useYolo = false;
+bool optimizeSession = false;
 int max = int.MaxValue;
 foreach (var a in args)
 {
     if (a == "--yolo") useYolo = true;
+    else if (a == "--ort-opt") optimizeSession = true;
     else if (a.StartsWith("--max=")) max = int.Parse(a.Substring(6));
     else dataset = a;
 }
@@ -45,7 +48,13 @@ var images = Directory.GetFiles(imagesDir).OrderBy(f => f).Take(max).ToArray();
 var rows = new List<string>();
 if (!useYolo) EnsureModel();
 string yoloPath = Path.Combine(Root, "yolov8s.onnx");
-using var detectorObj = useYolo ? (IDisposable)new YoloV8Detector(yoloPath) : new SignatureDetector(OnnxPath);
+SessionOptions? opts = null;
+if (optimizeSession)
+{
+    opts = new SessionOptions();
+    opts.GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL;
+}
+using var detectorObj = useYolo ? (IDisposable)new YoloV8Detector(yoloPath) : new SignatureDetector(OnnxPath, 640, opts);
 dynamic detector = detectorObj;
 double totalMs = 0;
 foreach (var img in images)
