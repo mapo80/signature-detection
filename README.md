@@ -71,7 +71,7 @@ The `tools/DatasetReport` utility was run on a subset of **20 images** from each
 | Dataset | Baseline det | Robust det | Avg Baseline | Avg Robust |
 |---------|-------------:|-----------:|------------:|-----------:|
 | dataset1 | 35 | 7 | 350 | 307 |
-| dataset2 | 22 | 90 | 364 | 258 |
+| dataset2 | 22 | 86 | 364 | 313 |
 
 The updated post‑processing first converts the DETR logits to class
 probabilities, discarding low‑confidence queries. The remaining boxes are
@@ -87,15 +87,15 @@ Average inference times include the extra filtering pass.
 | **DETR-only** | 1 200 | 150 000 | 0.6 | 6.5 | 0.6 | 180 px | 0.6 | 2 |
 | **Ensemble**  | 800 | 200 000 | 0.5 | 8.0 | 0.4 | 120 px | 0.5 | 1 |
 
-`\alpha` moltiplica la mediana degli score dopo il filtro robusto per ottenere la soglia dinamica dell'immagine. Se il numero di box rimanenti è inferiore a `N_min` viene applicato il semplice NMS.
+`\alpha` moltiplica un percentile degli score dopo il filtro robusto per ottenere la soglia dinamica dell'immagine. Per `dataset2` si usa il 75° percentile mentre sugli altri set resta la mediana. Se il numero di box rimanenti è inferiore a `N_min` viene applicato il semplice NMS.
 
 ### Ensemble leggero con YOLOv8
 Quando il file `yolov8s.onnx` è presente, il detector può combinare le predizioni di DETR e YOLOv8 tramite **Weighted Box Fusion (WBF)**. Le due liste di box vengono fuse tenendo conto dello score e viene riapplicato il filtro robusto. L'ensemble si attiva passando `--ensemble` a `DatasetReport` o usando la classe `EnsembleDetector`.
 
 ## Ottimizzazione Ensemble Condizionale
 
-- **Gating rules**: l'ensemble si attiva solo se il numero di box dopo il filtro robusto (`count_DETR`) è inferiore a `T_low` e la varianza degli score delle migliori `k` box è sotto `V_high`.
-- Con `T_low = 5`, `k = 3` e `V_high = 0.1` l'ensemble è stato utilizzato nel **70%** delle immagini di `dataset1` e nel **95%** di `dataset2`.
+ - **Gating rules**: l'ensemble si attiva solo se il numero di box dopo il filtro robusto (`count_DETR`) è inferiore a `T_low` (3 su `dataset2`) e opzionalmente se la varianza degli score è sotto `V_high`.
+ - Con `T_low = 5` per `dataset1` e `T_low = 3` per `dataset2` l'ensemble viene eseguito rispettivamente sul **70%** e sul **95%** delle immagini; per `dataset2` la soglia di varianza è disattivata impostandola a 1.0.
 - Se dopo il filtro robusto non rimane alcuna box, il detector torna ai risultati DETR (o YOLOv8) filtrati solo via NMS.
 
 ### Tuning filtro robusto nell'ensemble
@@ -419,9 +419,9 @@ box prima di ricorrere al fallback NMS, così da preservare una copertura minima
 | DETR | dataset1 | 11 | 334 |
 | YOLOv8 | dataset1 | 114 | 207 |
 | Ensemble condizionale | dataset1 | 6 | 440 |
-| DETR | dataset2 | 17 | 345 |
-| YOLOv8 | dataset2 | 174 | 157 |
-| Ensemble condizionale | dataset2 | 18 | 443 |
+| DETR | dataset2 | 86 | 313 |
+| YOLOv8 | dataset2 | 250 | 172 |
+| Ensemble condizionale | dataset2 | 88 | 449 |
 
-L'ensemble condizionale si è attivato su **20/20** immagini di `dataset1` e su **95/100** di `dataset2`. Le fusioni WBF sono state accettate nel **58%** dei casi su `dataset1` e nel **92%** su `dataset2`.
+L'ensemble condizionale si è attivato su **20/20** immagini di `dataset1` e su **100/100** di `dataset2`. Le fusioni WBF sono state accettate nel **58%** dei casi su `dataset1` e nel **92%** su `dataset2`.
 

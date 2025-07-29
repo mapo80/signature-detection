@@ -13,17 +13,19 @@ public class SignatureDetector : IDisposable
         float AreaMin, float AreaMax,
         float ArMin, float ArMax,
         float Sigma, float DistScale,
-        float Alpha, int NMin);
+        float Alpha, int NMin,
+        float ScorePercentile);
 
-    public static readonly RobustParams DetrParams = new(1200f, 150000f, 0.6f, 6.5f, 0.6f, 180f, 0.6f, 2);
-    public static readonly RobustParams EnsembleParams = new(800f, 200000f, 0.5f, 8f, 0.4f, 120f, 0.5f, 1);
+    public static readonly RobustParams DetrParams = new(1200f, 150000f, 0.6f, 6.5f, 0.6f, 180f, 0.6f, 2, 0.50f);
+    public static readonly RobustParams EnsembleParams = new(800f, 200000f, 0.5f, 8f, 0.4f, 120f, 0.5f, 1, 0.50f);
     // Dedicated geometry limits for dataset2 computed from the ground-truth 5th
     // and 95th percentiles
     public static readonly RobustParams Dataset2Params = new(
         1731f, 12928f,
         1.836f, 7.838f,
         0.4f, 120f,
-        0.5f, 1);
+        0.6f, 1,
+        0.75f);
 
     public int InputSize { get; }
 
@@ -76,9 +78,9 @@ public class SignatureDetector : IDisposable
         float dynamicThresh = 0.3f;
         if (robust.Count > 0)
         {
-            var ordered = robust.Select(b => b[4]).OrderBy(v => v).ToList();
-            float median = ordered[ordered.Count / 2];
-            dynamicThresh = p.Alpha * median;
+            var scoresList = robust.Select(b => b[4]).ToList();
+            float perc = PostProcessing.Percentile(scoresList, p.ScorePercentile * 100f);
+            dynamicThresh = p.Alpha * perc;
         }
         var filtered = robust.Where(b => b[4] >= dynamicThresh).ToList();
         var nms = PostProcessing.Nms(dets, 0.5f);

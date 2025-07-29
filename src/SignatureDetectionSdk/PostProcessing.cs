@@ -183,6 +183,18 @@ public static class PostProcessing
         return result;
     }
 
+    public static float Percentile(IReadOnlyList<float> values, float percentile)
+    {
+        if (values.Count == 0) return 0f;
+        var ordered = values.OrderBy(v => v).ToArray();
+        float rank = (percentile / 100f) * (ordered.Length - 1);
+        int lower = (int)MathF.Floor(rank);
+        int upper = (int)MathF.Ceiling(rank);
+        if (lower == upper) return ordered[lower];
+        float weight = rank - lower;
+        return ordered[lower] * (1 - weight) + ordered[upper] * weight;
+    }
+
     private static float IoU(float[] a, float[] b)
     {
         float xx1 = MathF.Max(a[0], b[0]);

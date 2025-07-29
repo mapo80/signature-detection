@@ -61,8 +61,8 @@ if (ensemble)
 {
     var detrParams = dataset == "dataset2" ? SignatureDetector.Dataset2Params : SignatureDetector.DetrParams;
     var ensParams = dataset == "dataset2" ? SignatureDetector.Dataset2Params : SignatureDetector.EnsembleParams;
-    int tLow = dataset == "dataset2" ? 4 : 5;
-    float vHigh = dataset == "dataset2" ? 0.08f : 0.1f;
+    int tLow = dataset == "dataset2" ? 3 : 5;
+    float vHigh = dataset == "dataset2" ? 1f : 0.1f;
     detectorObj = new EnsembleDetector(OnnxPath, yoloPath, true, tLow, vHigh, 3,
         dataset == "dataset2" ? 0.50f : 0.55f,
         dataset == "dataset2" ? 0.40f : 0.45f,

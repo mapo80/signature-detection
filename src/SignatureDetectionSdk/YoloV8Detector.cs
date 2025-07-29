@@ -102,8 +102,9 @@ public class YoloV8Detector : IDisposable
         float dyn = 0.3f;
         if (list.Count > 0)
         {
-            var ordered = list.Select(b => b[4]).OrderBy(v => v).ToList();
-            dyn = p.Alpha * ordered[ordered.Count / 2];
+            var scoresList = list.Select(b => b[4]).ToList();
+            float perc = PostProcessing.Percentile(scoresList, p.ScorePercentile * 100f);
+            dyn = p.Alpha * perc;
         }
         var filtered = list.Where(b => b[4] >= dyn).ToList();
         var nms = PostProcessing.Nms(list, 0.5f);

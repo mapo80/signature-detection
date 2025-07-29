@@ -98,9 +98,9 @@ public class EnsembleDetector : IDisposable
         float dynamicThresh = 0.3f;
         if (fused.Count > 0)
         {
-            var ordered = fused.Select(b => b[4]).OrderBy(v => v).ToList();
-            float median = ordered[ordered.Count / 2];
-            dynamicThresh = _ensParams.Alpha * median;
+            var scoresList = fused.Select(b => b[4]).ToList();
+            float perc = PostProcessing.Percentile(scoresList, _ensParams.ScorePercentile * 100f);
+            dynamicThresh = _ensParams.Alpha * perc;
         }
         var filtered = fused.Where(b => b[4] >= dynamicThresh).ToList();
         var nms = PostProcessing.Nms(fused, 0.5f);
