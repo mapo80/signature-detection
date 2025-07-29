@@ -56,117 +56,103 @@ Python implementation and yields one detection per labeled image.
 
 ## Dataset evaluation
 
-The `tools/DatasetReport` utility processes every image in `dataset/dataset1` using the
-SDK and compares the predicted bounding box with the corresponding label. The
-table below lists for each image the number of labels, number of detected
-signatures, the percentage difference (100% - IoU), and the inference time in
-milliseconds. With the updated threshold the average inference time is
-**~626 ms**.
+The `tools/DatasetReport` utility was run on 20 images from each dataset. The tables below show the results for Conditional DETR and YOLOv8.
 
-<!-- GENERATED REPORT -->
-
+### Dataset1 - DETR
 | Image | Labels | Detections | Diff% | Time ms |
 |---|---|---|---|---|
-| 001_15_PNG_jpg.rf.7ae3c04130de9c0e178fa2c1feb8eca9.jpg | 1 | 0 | 100.00 | 1095 |
-| 00101001_png_jpg.rf.27db3f0cbf1a1ef078dcca2fdc2874af.jpg | 1 | 1 | 98.71 | 697 |
-| 00101027_png_jpg.rf.a92770147b74d58b15829954bbba6ac6.jpg | 1 | 5 | 94.14 | 654 |
-| 00101029_png_jpg.rf.14639faea024ffc684cd71be406650dc.jpg | 1 | 1 | 91.44 | 586 |
-| 00104001_png_jpg.rf.bfafcce0144b089dc34bc63f05c4ea12.jpg | 1 | 1 | 98.44 | 618 |
-| ... | ... | ... | ... | ... |
-| 02205002_png_jpg.rf.c491e313d0f62c95e2990f664fe44c8b.jpg | 1 | 84 | 41.44 | 288 |
-| 02302023_png_jpg.rf.7b59991fc80b082bb1925a5071c22464.jpg | 1 | 65 | 49.00 | 244 |
-| 02302070_png_jpg.rf.5db163a7de9ae621c56c1a86c3de2d84.jpg | 1 | 67 | 71.82 | 259 |
-| 02305070_png_jpg.rf.d7ecd0ef0984bbe479271ab32d0888af.jpg | 1 | 66 | 33.45 | 225 |
-| 02403024_png_jpg.rf.234c51b41d237cc3246c71e4fae0e0e0.jpg | 1 | 66 | 57.94 | 224 |
-| 02601026_png_jpg.rf.2e55a766ff4dc7a77260ab10c910bca5.jpg | 1 | 76 | 43.46 | 249 |
-| 02701027_png_jpg.rf.cbb3219446cb316a4c42533c35249aef.jpg | 1 | 68 | 38.28 | 233 |
-| 02702027_png_jpg.rf.819a7dc18c7f3c8ce22710a3ed5abc08.jpg | 1 | 84 | 36.60 | 229 |
-| 02703027_png_jpg.rf.b76da2e8d9524be6951e25848b1add1a.jpg | 1 | 79 | 41.97 | 246 |
-| 03_069_png_jpg.rf.5f1e837207ef6358f292d292daf5e71e.jpg | 1 | 76 | 63.16 | 221 |
-| 03205085_png_jpg.rf.93ec2f5b272bef47099a1b0f3c158976.jpg | 1 | 75 | 37.43 | 226 |
-| 08501085_png_jpg.rf.9221f3b87796f82891e256a75a7696ee.jpg | 1 | 79 | 46.33 | 255 |
-| 08504085_png_jpg.rf.f5c2b292988cf055946a56494933cdea.jpg | 1 | 75 | 41.82 | 236 |
-| 08602086_png_jpg.rf.48160dbed60bba75fa1b4edd0a8c945d.jpg | 1 | 70 | 31.95 | 248 |
-| 09304093_png_jpg.rf.9494e76e10a326b85b826c8ec40f5152.jpg | 1 | 71 | 34.71 | 235 |
-| 1_png.rf.2b1f3375a14adfb8dc7ba771d0c3ebe3.jpg | 1 | 80 | 59.14 | 266 |
-| 1_png.rf.44276085919656a54a022d02083f4e0e.jpg | 1 | 80 | 42.52 | 235 |
-| 1_png.rf.4851c565455ea0bf15090a87112764bc.jpg | 1 | 80 | 56.32 | 227 |
-| 1_png.rf.953d2eb49ec06cbdceded4af8f4cbc44.jpg | 1 | 80 | 41.70 | 255 |
-| 1_png.rf.cc7899c34d1d8241b3026a8e0fa74a47.jpg | 1 | 80 | 56.32 | 246 |
-| 1_png.rf.cd81f8e3ba409c128c01fe3f2f221fb6.jpg | 1 | 80 | 42.33 | 253 |
-| 10_png.rf.2d8da220f77b18e7de44f4756cc687b3.jpg | 1 | 78 | 40.48 | 324 |
-| 10_png.rf.6ff4cc9343039deacf1e1dec59ef0821.jpg | 1 | 78 | 53.94 | 248 |
-| 10_png.rf.7f8156a37f83d2155f9b1591e61b19da.jpg | 1 | 78 | 44.20 | 226 |
-| 10_png.rf.a88fd2178d8b8e93944d3a6f02aa409c.jpg | 1 | 78 | 45.31 | 227 |
-| 14_png.rf.04d6e155fea10001a2bb6b9fd5fb0d63.jpg | 1 | 66 | 50.46 | 245 |
-| 14_png.rf.7e3c63e0d06e0949759dfe46795fba76.jpg | 1 | 66 | 51.92 | 235 |
-| 14_png.rf.8df113443a6ffc3a6271af52c8706b52.jpg | 1 | 66 | 48.55 | 232 |
-| 14_png.rf.cbc1767876a4d6119ee164f00927918d.jpg | 1 | 66 | 54.75 | 249 |
-| 14_png.rf.fcc5241fe17a3726f416dccb679f3a30.jpg | 1 | 66 | 59.00 | 231 |
-| 14_png.rf.ffe93fbb3b9f8030b794f3d9673289ac.jpg | 1 | 66 | 51.59 | 259 |
-| 18_png.rf.03cc6781acb7697210a2854f5de12c24.jpg | 1 | 77 | 59.92 | 231 |
-| 18_png.rf.16c61b94c3d61bdb668e179ca9dc3212.jpg | 1 | 77 | 58.77 | 222 |
-| 18_png.rf.65d9c8997b92e7eeeab4c03087fb791f.jpg | 1 | 77 | 62.47 | 250 |
-| 18_png.rf.6f1ba185b3bff2da1d753d0fdae324d5.jpg | 1 | 77 | 66.74 | 223 |
-| 18_png.rf.9980efa13f873328e9d4aceaaa0cd730.jpg | 1 | 77 | 58.77 | 229 |
-| 18_png.rf.a04237916cf8afa8c755aada5f331ae1.jpg | 1 | 77 | 64.32 | 248 |
-| 2_png.rf.43fa3c3f3dfe467f37395f4ab16405dc.jpg | 0 | 76 | 100.00 | 219 |
-| 2_png.rf.5f247cf3a8537bfe796799662d8efd66.jpg | 0 | 76 | 100.00 | 224 |
-| 2_png.rf.f25b6ecd6ca8f4124cebd9a7bb1d4a15.jpg | 0 | 76 | 100.00 | 257 |
-| 21_png.rf.1ff01628f0cab0e53ee7aa75e8e87f1f.jpg | 1 | 75 | 54.71 | 230 |
-| 21_png.rf.3338010398ec8ccf5acf084f9d65de66.jpg | 1 | 75 | 56.69 | 264 |
-| 21_png.rf.3968b3a75b79489b6ef0cf8439d9fde4.jpg | 1 | 75 | 54.71 | 232 |
-| 21_png.rf.43f466219daac754f9d2ab234c9f6897.jpg | 1 | 75 | 45.73 | 261 |
-| 21_png.rf.9220576a908f8f52b532894da9695635.jpg | 1 | 75 | 56.54 | 221 |
-| 3_png.rf.50b8175ab72a33adbff972beb671c512.jpg | 0 | 68 | 100.00 | 227 |
-| 3_png.rf.a098c14de07b8ec3b96c80ec6df66e44.jpg | 0 | 68 | 100.00 | 254 |
-| 3_png.rf.a7a511fb6136459523901c3fa456480b.jpg | 0 | 68 | 100.00 | 230 |
-| 4_png.rf.d4374a737da88e15f923b657ce573dfd.jpg | 0 | 79 | 100.00 | 226 |
-| 4_png.rf.e065ff219e031b0ec80e2b3b1c822245.jpg | 0 | 79 | 100.00 | 286 |
-| MicrosoftTeams-image-1-Copy-Copy_png.rf.0411222c4cdd7a87b26e1499094c8abe.jpg | 1 | 78 | 58.09 | 271 |
-| MicrosoftTeams-image-1-Copy-Copy_png.rf.5f715cdf9b6077827ba941958c6471cf.jpg | 1 | 78 | 59.51 | 240 |
-| MicrosoftTeams-image-1-Copy-Copy_png.rf.e7156c9aa338e6d3e11b01cac2a1b6da.jpg | 1 | 78 | 46.63 | 242 |
-| MicrosoftTeams-image-10-Copy_png.rf.70058f1172783de55228f382c6926a01.jpg | 1 | 75 | 55.41 | 244 |
-| MicrosoftTeams-image-10-Copy_png.rf.b3641b1a85725bb36af117ed22d8465c.jpg | 1 | 75 | 47.96 | 223 |
-| MicrosoftTeams-image-10-Copy-Copy_png.rf.559d2e85435cc13a9a59c591e458fb41.jpg | 1 | 66 | 51.45 | 247 |
-| MicrosoftTeams-image-17-Copy-Copy_png.rf.52eb98eceab8212bdada65e4fb576d8a.jpg | 1 | 77 | 65.45 | 230 |
-| MicrosoftTeams-image-2-Copy_png.rf.9c934cec6018d1aedc65599007c88dbe.jpg | 1 | 66 | 54.44 | 219 |
-| MicrosoftTeams-image-4-Copy_png.rf.c503ef98258345642cdba6623441a9a2.jpg | 1 | 77 | 65.60 | 253 |
-| MicrosoftTeams-image-5-Copy_png.rf.c5f05eb16773b7cb282c4e0beccfa555.jpg | 1 | 75 | 51.66 | 243 |
-| MicrosoftTeams-image-Copy-2-_png.rf.4243e55eb9f3c805f6c0d54f2d8a9341.jpg | 1 | 80 | 54.53 | 327 |
-| MicrosoftTeams-image-Copy-2-_png.rf.792670557ee74e5a96bffabc81e40af0.jpg | 1 | 80 | 52.10 | 317 |
-| NFI-00101014_png_jpg.rf.cbeb968701eaf9f15d7bbf0529df4b7e.jpg | 1 | 73 | 48.61 | 284 |
-| NFI-00103027_PNG_jpg.rf.c763a0557185133b505ad43670e78239.jpg | 1 | 80 | 56.51 | 235 |
-| NFI-00305002_png_jpg.rf.0797ea7b2ca8d9f6d6c652d496aebd16.jpg | 1 | 71 | 61.46 | 237 |
-| NFI-00401024_png_jpg.rf.4a8cce7a421e30602dd15aa063e130b6.jpg | 1 | 83 | 32.43 | 264 |
-| NFI-00803008_png_jpg.rf.5ba69debb10f322c26a3429f68231637.jpg | 1 | 63 | 57.39 | 227 |
-| NFI-00804008_png_jpg.rf.cb233aebe9c9b3152feac7c1d260d2bb.jpg | 1 | 75 | 46.09 | 245 |
-| NFI-00902009_png_jpg.rf.9e72b1cbffa61913b29d580495fc1ace.jpg | 1 | 74 | 46.10 | 222 |
-| NFI-00903009_png_jpg.rf.cc4355c6cb338363a8cbc819b366c457.jpg | 1 | 81 | 51.88 | 228 |
-| NFI-01102011_png_jpg.rf.160e293d7a0a1a0e836212c5ceff789c.jpg | 1 | 61 | 46.31 | 245 |
-| NFI-01302013_png_jpg.rf.28ca47c98d2bb16234f7d08d7e9d9df4.jpg | 1 | 77 | 49.81 | 234 |
-| NFI-02401024_png_jpg.rf.67eacdbd4b4661a5435f7682673944a3.jpg | 1 | 78 | 42.68 | 226 |
-| NFI-02401024_png_jpg.rf.fdfc8f98be1e92c8684e97613bae6e7f.jpg | 1 | 75 | 44.57 | 246 |
-| NFI-02902029_PNG_jpg.rf.7160649ae532f53ff6baad3728b288b3.jpg | 1 | 78 | 45.33 | 230 |
+| 001_15_PNG_jpg.rf.7ae3c04130de9c0e178fa2c1feb8eca9.jpg | 1 | 0 | 100.00 | 763 |
+| 00101001_png_jpg.rf.27db3f0cbf1a1ef078dcca2fdc2874af.jpg | 1 | 1 | 98.71 | 445 |
+| 00101027_png_jpg.rf.a92770147b74d58b15829954bbba6ac6.jpg | 1 | 5 | 94.14 | 550 |
+| 00101029_png_jpg.rf.14639faea024ffc684cd71be406650dc.jpg | 1 | 1 | 91.44 | 315 |
+| 00104001_png_jpg.rf.bfafcce0144b089dc34bc63f05c4ea12.jpg | 1 | 1 | 98.44 | 337 |
+| 00104027_png_jpg.rf.a0812b28f188bed93538a071edc42b73.jpg | 1 | 9 | 94.96 | 307 |
+| 002_02_PNG_jpg.rf.036f32c4fafd37313d3efbf30e330a90.jpg | 1 | 0 | 100.00 | 315 |
+| 002_11_PNG_jpg.rf.74c78f2735867cd2f42cf4550d9d7993.jpg | 1 | 0 | 100.00 | 294 |
+| 002_15_PNG_jpg.rf.505a2e55fcdd82ca86042fe97b59d1b7.jpg | 1 | 0 | 100.00 | 314 |
+| 00205002_png_jpg.rf.c64a564d90ed620839808566c8ae60bc.jpg | 1 | 0 | 100.00 | 310 |
+| 00205002_png_jpg.rf.edc16c394577e472cd95c93f73a616e4.jpg | 1 | 1 | 99.72 | 295 |
+| 02205002_png_jpg.rf.c491e313d0f62c95e2990f664fe44c8b.jpg | 1 | 1 | 99.63 | 291 |
+| 02302023_png_jpg.rf.7b59991fc80b082bb1925a5071c22464.jpg | 1 | 0 | 100.00 | 310 |
+| 02302070_png_jpg.rf.5db163a7de9ae621c56c1a86c3de2d84.jpg | 1 | 0 | 100.00 | 292 |
+| 02305070_png_jpg.rf.d7ecd0ef0984bbe479271ab32d0888af.jpg | 1 | 0 | 100.00 | 303 |
+| 02403024_png_jpg.rf.234c51b41d237cc3246c71e4fae0e0e0.jpg | 1 | 0 | 100.00 | 293 |
+| 02601026_png_jpg.rf.2e55a766ff4dc7a77260ab10c910bca5.jpg | 1 | 3 | 95.71 | 323 |
+| 02701027_png_jpg.rf.cbb3219446cb316a4c42533c35249aef.jpg | 1 | 6 | 94.70 | 320 |
+| 02702027_png_jpg.rf.819a7dc18c7f3c8ce22710a3ed5abc08.jpg | 1 | 3 | 95.63 | 339 |
+| 02703027_png_jpg.rf.b76da2e8d9524be6951e25848b1add1a.jpg | 1 | 4 | 86.64 | 291 |
 
-### Dataset 2 evaluation
-
-The `tools/DatasetReport` utility can also process the images from `dataset/dataset2`.
-Below is a short summary.
-
+### Dataset1 - YOLOv8
 | Image | Labels | Detections | Diff% | Time ms |
 |---|---|---|---|---|
-| aah97e00-page02_1_jpg.rf.b05d1901504ffb90d4a5ae5978ab182c.jpg | 0 | 1 | 100.00 | 728 |
-| aah97e00-page02_2_jpg.rf.9c52de62ab3471bf3f48b1d60654f7bb.jpg | 1 | 1 | 8.68 | 667 |
-| aam09c00_jpg.rf.be02fbea5e3f4269a2419952cff0c8b2.jpg | 1 | 1 | 15.47 | 706 |
-| acr64d00_jpg.rf.80c899e7d363c365f7eabd58f00376b4.jpg | 1 | 1 | 20.16 | 466 |
-| adh36e00-page2_1_jpg.rf.b1104a907572f10b87561f097e6871ba.jpg | 0 | 0 | 100.00 | 290 |
-| ... | ... | ... | ... | ... |
-| zlw44e00-page02_1_jpg.rf.725f6c054c694edbc90f269bf4f7a8b1.jpg | 0 | 0 | 100.00 | 233 |
-| zny04f00_1_jpg.rf.1bb506e5df60f54b238d63010581369b.jpg | 0 | 0 | 100.00 | 359 |
-| zny04f00_2_jpg.rf.415115094043d4c6689735433d06bb53.jpg | 1 | 1 | 3.62 | 219 |
-| zss86d00_jpg.rf.7b5d6b9e7f3ce5e371e67b1388d9beb1.jpg | 1 | 1 | 8.27 | 218 |
-| zvs17e00_jpg.rf.e2b6a6ace711feeecdca4f67c63fc5ee.jpg | 1 | 2 | 20.53 | 213 |
+| 001_15_PNG_jpg.rf.7ae3c04130de9c0e178fa2c1feb8eca9.jpg | 1 | 0 | 100.00 | 585 |
+| 00101001_png_jpg.rf.27db3f0cbf1a1ef078dcca2fdc2874af.jpg | 1 | 0 | 100.00 | 324 |
+| 00101027_png_jpg.rf.a92770147b74d58b15829954bbba6ac6.jpg | 1 | 8 | 51.53 | 292 |
+| 00101029_png_jpg.rf.14639faea024ffc684cd71be406650dc.jpg | 1 | 12 | 49.89 | 329 |
+| 00104001_png_jpg.rf.bfafcce0144b089dc34bc63f05c4ea12.jpg | 1 | 5 | 61.22 | 179 |
+| 00104027_png_jpg.rf.a0812b28f188bed93538a071edc42b73.jpg | 1 | 29 | 53.79 | 340 |
+| 002_02_PNG_jpg.rf.036f32c4fafd37313d3efbf30e330a90.jpg | 1 | 7 | 88.69 | 222 |
+| 002_11_PNG_jpg.rf.74c78f2735867cd2f42cf4550d9d7993.jpg | 1 | 0 | 100.00 | 224 |
+| 002_15_PNG_jpg.rf.505a2e55fcdd82ca86042fe97b59d1b7.jpg | 1 | 0 | 100.00 | 279 |
+| 00205002_png_jpg.rf.c64a564d90ed620839808566c8ae60bc.jpg | 1 | 0 | 100.00 | 186 |
+| 00205002_png_jpg.rf.edc16c394577e472cd95c93f73a616e4.jpg | 1 | 0 | 100.00 | 184 |
+| 02205002_png_jpg.rf.c491e313d0f62c95e2990f664fe44c8b.jpg | 1 | 8 | 66.35 | 154 |
+| 02302023_png_jpg.rf.7b59991fc80b082bb1925a5071c22464.jpg | 1 | 0 | 100.00 | 187 |
+| 02302070_png_jpg.rf.5db163a7de9ae621c56c1a86c3de2d84.jpg | 1 | 0 | 100.00 | 170 |
+| 02305070_png_jpg.rf.d7ecd0ef0984bbe479271ab32d0888af.jpg | 1 | 0 | 100.00 | 179 |
+| 02403024_png_jpg.rf.234c51b41d237cc3246c71e4fae0e0e0.jpg | 1 | 0 | 100.00 | 159 |
+| 02601026_png_jpg.rf.2e55a766ff4dc7a77260ab10c910bca5.jpg | 1 | 0 | 100.00 | 189 |
+| 02701027_png_jpg.rf.cbb3219446cb316a4c42533c35249aef.jpg | 1 | 27 | 53.62 | 173 |
+| 02702027_png_jpg.rf.819a7dc18c7f3c8ce22710a3ed5abc08.jpg | 1 | 8 | 60.61 | 181 |
+| 02703027_png_jpg.rf.b76da2e8d9524be6951e25848b1add1a.jpg | 1 | 10 | 52.46 | 165 |
+
+### Dataset2 - DETR
+| Image | Labels | Detections | Diff% | Time ms |
+|---|---|---|---|---|
+| aah97e00-page02_1_jpg.rf.b05d1901504ffb90d4a5ae5978ab182c.jpg | 0 | 1 | 100.00 | 747 |
+| aah97e00-page02_2_jpg.rf.9c52de62ab3471bf3f48b1d60654f7bb.jpg | 1 | 1 | 8.68 | 553 |
+| aam09c00_jpg.rf.be02fbea5e3f4269a2419952cff0c8b2.jpg | 1 | 1 | 15.47 | 536 |
+| acr64d00_jpg.rf.80c899e7d363c365f7eabd58f00376b4.jpg | 1 | 1 | 20.16 | 296 |
+| adh36e00-page2_1_jpg.rf.b1104a907572f10b87561f097e6871ba.jpg | 0 | 0 | 100.00 | 307 |
+| adp7aa00_jpg.rf.be7449073e76d0d9b5500e66f9f8e252.jpg | 1 | 1 | 22.68 | 308 |
+| adq65f00_jpg.rf.f28f5d70c209bfcd7e93e6dbbf091505.jpg | 1 | 1 | 18.80 | 324 |
+| aeb95e00_jpg.rf.c980b393baab1237bd1fa82d275a7840.jpg | 1 | 1 | 30.11 | 297 |
+| aee44c00_jpg.rf.5d83ee8c8d32d763f0fb94486c3dcb7e.jpg | 1 | 1 | 14.99 | 305 |
+| aeq93a00_jpg.rf.e6ed1bad4b619aaac899c43a41a466c7.jpg | 1 | 2 | 10.99 | 302 |
+| ail70a00_jpg.rf.bdfddbd9d3846f5c65f0beaf6abfc008.jpg | 1 | 1 | 13.70 | 303 |
+| ajj10e00_jpg.rf.d75937c912293548cd9a588a6b0eefc0.jpg | 1 | 1 | 11.73 | 315 |
+| ajy01c00_jpg.rf.27ba4456d0e66648c5a9a1c1e5517008.jpg | 1 | 1 | 11.79 | 310 |
+| aki32e00_jpg.rf.189270486e0e4ecaf8635da598568966.jpg | 1 | 2 | 10.43 | 311 |
+| alz35d00_jpg.rf.013749684cd65d92911914fc69dd1c52.jpg | 1 | 1 | 21.32 | 483 |
+| ama91d00-page03_3_jpg.rf.9194a22a15a2ac6514f59ef1432743c2.jpg | 1 | 2 | 20.53 | 290 |
+| amw93e00_jpg.rf.1952165093c5431ada193146da9b1c7c.jpg | 1 | 1 | 29.37 | 303 |
+| anv39d00_jpg.rf.d8325d793611186abf57f13286cb6d0e.jpg | 1 | 1 | 12.76 | 306 |
+| arr09c00_jpg.rf.021d62e46a81cb73ea2c5e13792d23ef.jpg | 1 | 1 | 5.64 | 312 |
+| arz92e00_jpg.rf.d032a45166eda3a7b6ca41c47bde7d69.jpg | 1 | 1 | 18.83 | 364 |
+
+### Dataset2 - YOLOv8
+| Image | Labels | Detections | Diff% | Time ms |
+|---|---|---|---|---|
+| aah97e00-page02_1_jpg.rf.b05d1901504ffb90d4a5ae5978ab182c.jpg | 0 | 0 | 100.00 | 596 |
+| aah97e00-page02_2_jpg.rf.9c52de62ab3471bf3f48b1d60654f7bb.jpg | 1 | 10 | 4.19 | 393 |
+| aam09c00_jpg.rf.be02fbea5e3f4269a2419952cff0c8b2.jpg | 1 | 9 | 11.17 | 307 |
+| acr64d00_jpg.rf.80c899e7d363c365f7eabd58f00376b4.jpg | 1 | 9 | 5.56 | 332 |
+| adh36e00-page2_1_jpg.rf.b1104a907572f10b87561f097e6871ba.jpg | 0 | 0 | 100.00 | 295 |
+| adp7aa00_jpg.rf.be7449073e76d0d9b5500e66f9f8e252.jpg | 1 | 9 | 13.23 | 217 |
+| adq65f00_jpg.rf.f28f5d70c209bfcd7e93e6dbbf091505.jpg | 1 | 11 | 15.57 | 199 |
+| aeb95e00_jpg.rf.c980b393baab1237bd1fa82d275a7840.jpg | 1 | 10 | 6.60 | 154 |
+| aee44c00_jpg.rf.5d83ee8c8d32d763f0fb94486c3dcb7e.jpg | 1 | 8 | 8.26 | 367 |
+| aeq93a00_jpg.rf.e6ed1bad4b619aaac899c43a41a466c7.jpg | 1 | 8 | 19.47 | 167 |
+| ail70a00_jpg.rf.bdfddbd9d3846f5c65f0beaf6abfc008.jpg | 1 | 10 | 8.48 | 189 |
+| ajj10e00_jpg.rf.d75937c912293548cd9a588a6b0eefc0.jpg | 1 | 10 | 3.37 | 166 |
+| ajy01c00_jpg.rf.27ba4456d0e66648c5a9a1c1e5517008.jpg | 1 | 10 | 11.22 | 186 |
+| aki32e00_jpg.rf.189270486e0e4ecaf8635da598568966.jpg | 1 | 10 | 6.84 | 164 |
+| alz35d00_jpg.rf.013749684cd65d92911914fc69dd1c52.jpg | 1 | 8 | 9.59 | 181 |
+| ama91d00-page03_3_jpg.rf.9194a22a15a2ac6514f59ef1432743c2.jpg | 1 | 9 | 5.43 | 149 |
+| amw93e00_jpg.rf.1952165093c5431ada193146da9b1c7c.jpg | 1 | 9 | 24.00 | 169 |
+| anv39d00_jpg.rf.d8325d793611186abf57f13286cb6d0e.jpg | 1 | 6 | 7.03 | 162 |
+| arr09c00_jpg.rf.021d62e46a81cb73ea2c5e13792d23ef.jpg | 1 | 17 | 8.07 | 183 |
+| arz92e00_jpg.rf.d032a45166eda3a7b6ca41c47bde7d69.jpg | 1 | 11 | 2.44 | 171 |
 
 ## Python vs .NET comparison
 

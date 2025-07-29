@@ -1,4 +1,5 @@
 using SignatureDetectionSdk;
+using System.Linq;
 using System.Diagnostics;
 
 string Root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../"));
@@ -28,13 +29,24 @@ float IoU(float x1, float y1, float x2, float y2, float x1b, float y1b, float x2
     return union <= 0 ? 0 : inter / union;
 }
 
-EnsureModel();
-string dataset = args.Length > 0 ? args[0] : "dataset1";
+string dataset = "dataset1";
+bool useYolo = false;
+int max = int.MaxValue;
+foreach (var a in args)
+{
+    if (a == "--yolo") useYolo = true;
+    else if (a.StartsWith("--max=")) max = int.Parse(a.Substring(6));
+    else dataset = a;
+}
+
 var imagesDir = Path.Combine(Root, "dataset", dataset, "images");
 var labelsDir = Path.Combine(Root, "dataset", dataset, "labels");
-var images = Directory.GetFiles(imagesDir).OrderBy(f => f).ToArray();
+var images = Directory.GetFiles(imagesDir).OrderBy(f => f).Take(max).ToArray();
 var rows = new List<string>();
-using var detector = new SignatureDetector(OnnxPath);
+if (!useYolo) EnsureModel();
+string yoloPath = Path.Combine(Root, "yolov8s.onnx");
+using var detectorObj = useYolo ? (IDisposable)new YoloV8Detector(yoloPath) : new SignatureDetector(OnnxPath);
+dynamic detector = detectorObj;
 double totalMs = 0;
 foreach (var img in images)
 {
@@ -68,6 +80,7 @@ foreach (var img in images)
     }
     rows.Add($"{Path.GetFileName(img)},{numLabels},{preds.Length},{diff:F2},{sw.Elapsed.TotalMilliseconds:F0}");
 }
-string outFile = dataset == "dataset1" ? "dataset_report.csv" : $"dataset_report_{dataset}.csv";
+string suffix = useYolo ? "_yolo" : "";
+string outFile = dataset == "dataset1" ? $"dataset_report{suffix}.csv" : $"dataset_report_{dataset}{suffix}.csv";
 File.WriteAllLines(Path.Combine(Root, outFile), rows);
 Console.WriteLine($"Average inference ms: {totalMs / images.Length:F1}");
