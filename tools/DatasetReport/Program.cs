@@ -97,7 +97,14 @@ foreach (var img in images)
     }
     rows.Add($"{Path.GetFileName(img)},{numLabels},{preds.Length},{diff:F2},{sw.Elapsed.TotalMilliseconds:F0}");
 }
-string suffix = useYolo ? "_yolo" : "";
+string suffix = ensemble ? "_ensemble" : useYolo ? "_yolo" : "";
 string outFile = dataset == "dataset1" ? $"dataset_report{suffix}.csv" : $"dataset_report_{dataset}{suffix}.csv";
 File.WriteAllLines(Path.Combine(Root, outFile), rows);
 Console.WriteLine($"Average inference ms: {totalMs / images.Length:F1}");
+if (ensemble && detectorObj is EnsembleDetector ed)
+{
+    Console.WriteLine($"Ensemble triggered on {ed.UsedCount}/{ed.TotalCount} images ({ed.UsedCount * 100.0 / ed.TotalCount:F1}%)");
+    int totFuse = ed.FusionAccepted + ed.FusionRejected;
+    if (totFuse > 0)
+        Console.WriteLine($"Fusion accepted {ed.FusionAccepted}/{totFuse} ({ed.FusionAccepted * 100.0 / totFuse:F1}%)");
+}

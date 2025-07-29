@@ -139,9 +139,17 @@ public static class PostProcessing
 
     public static List<float[]> WeightedBoxFusion(IReadOnlyList<float[]> a,
         IReadOnlyList<float[]> b, float iouThreshold)
+        => WeightedBoxFusion(a, b, iouThreshold, 0f, out _, out _);
+
+    public static List<float[]> WeightedBoxFusion(IReadOnlyList<float[]> a,
+        IReadOnlyList<float[]> b, float iouThreshold, float scoreThreshold,
+        out int accepted, out int rejected)
     {
-        var all = a.Concat(b).OrderByDescending(x => x[4]).Select(x => (float[])x.Clone()).ToList();
+        var all = a.Concat(b).OrderByDescending(x => x[4])
+            .Select(x => (float[])x.Clone()).ToList();
         var result = new List<float[]>();
+        accepted = 0;
+        rejected = 0;
         while (all.Count > 0)
         {
             var current = all[0];
@@ -162,7 +170,15 @@ public static class PostProcessing
             float x2 = cluster.Sum(c => c[2] * c[4]) / sumScore;
             float y2 = cluster.Sum(c => c[3] * c[4]) / sumScore;
             float score = cluster.Max(c => c[4]);
-            result.Add(new[] { x1, y1, x2, y2, score });
+            if (score >= scoreThreshold)
+            {
+                accepted++;
+                result.Add(new[] { x1, y1, x2, y2, score });
+            }
+            else
+            {
+                rejected++;
+            }
         }
         return result;
     }

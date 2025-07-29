@@ -385,3 +385,16 @@ YOLOv8 migliora ulteriormente la copertura al costo di circa 100 ms di latenza.
 Si consiglia di mantenere `\alpha` fra 0.6 e 0.7 e di non scendere sotto le 2
 box prima di ricorrere al fallback NMS, così da preservare una copertura minima.
 
+## Metriche di Valutazione Puntuale
+
+| Variante | Dataset | Labels | Detections | Avg ms |
+|---------|---------|-------:|-----------:|-------:|
+| DETR | dataset1 | 78 | 71 | 284 |
+| YOLOv8 | dataset1 | 78 | 621 | 161 |
+| Ensemble condizionale | dataset1 | 78 | 60 | 399 |
+| DETR | dataset2 | 467 | 421 | 272 |
+| YOLOv8 | dataset2 | 467 | 4469 | 133 |
+| Ensemble condizionale | dataset2 | 467 | 453 | 373 |
+
+L'ensemble condizionale si attiva su **83/86** immagini di `dataset1` e su **375/419** immagini di `dataset2`. Le fusioni WBF superano il filtro nel **65%** dei casi su `dataset1` e nell'**88%** su `dataset2`.
+
