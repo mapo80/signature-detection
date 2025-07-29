@@ -22,7 +22,7 @@ public class SignatureDetector : IDisposable
         _session.Dispose();
     }
 
-    public float[][] Predict(string imagePath, float scoreThreshold = 0.5f)
+    public float[][] Predict(string imagePath, float scoreThreshold = 0.1f)
     {
         using var image = SKBitmap.Decode(imagePath);
         using var resized = image.Resize(new SKImageInfo(InputSize, InputSize), SKFilterQuality.High);
@@ -49,12 +49,12 @@ public class SignatureDetector : IDisposable
         using IDisposableReadOnlyCollection<DisposableNamedOnnxValue> results = _session.Run(inputs);
         var logits = results.First(r => r.Name == "logits").AsEnumerable<float>().ToArray();
         var boxes = results.First(r => r.Name == "boxes").AsEnumerable<float>().ToArray();
-        int numPreds = logits.Length / 2; // 2 classes: no-object + signature
+        int numPreds = logits.Length; // single class with sigmoid activation
         var detections = new List<float[]>();
         for (int i = 0; i < numPreds; i++)
         {
-            float score = SoftmaxScore(logits[i*2 + 1], logits[i*2]);
-            if (score < scoreThreshold) continue;
+            float score = Sigmoid(logits[i]);
+            if (score <= scoreThreshold) continue;
             float cx = boxes[i*4];
             float cy = boxes[i*4 + 1];
             float w = boxes[i*4 + 2];
@@ -68,11 +68,8 @@ public class SignatureDetector : IDisposable
         return detections.ToArray();
     }
 
-    private static float SoftmaxScore(float obj, float background)
+    private static float Sigmoid(float value)
     {
-        float max = Math.Max(obj, background);
-        float e1 = MathF.Exp(obj - max);
-        float e0 = MathF.Exp(background - max);
-        return e1 / (e1 + e0);
+        return 1f / (1f + MathF.Exp(-value));
     }
 }
