@@ -3,8 +3,9 @@ using SignatureDetectionSdk;
 
 string Root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../"));
 string modelPath = Path.Combine(Root, "yolov8s.onnx");
-string imagesDir = Path.Combine(Root, "dataset", "images");
-string labelsDir = Path.Combine(Root, "dataset", "labels");
+string dataset = Environment.GetEnvironmentVariable("DATASET_SUBDIR") ?? "dataset1";
+string imagesDir = Path.Combine(Root, "dataset", dataset, "images");
+string labelsDir = Path.Combine(Root, "dataset", dataset, "labels");
 string outputDir = Path.Combine(Root, "samples", "yolov8s");
 
 if (!File.Exists(modelPath))

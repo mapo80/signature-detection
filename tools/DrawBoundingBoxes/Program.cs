@@ -3,8 +3,9 @@ using SignatureDetectionSdk;
 using System.Linq;
 
 string Root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../.."));
-string imagesDir = Path.Combine(Root, "dataset", "images");
-string labelsDir = Path.Combine(Root, "dataset", "labels");
+string dataset = Environment.GetEnvironmentVariable("DATASET_SUBDIR") ?? "dataset1";
+string imagesDir = Path.Combine(Root, "dataset", dataset, "images");
+string labelsDir = Path.Combine(Root, "dataset", dataset, "labels");
 string outputDetr = Path.Combine(Root, "samples", "detr");
 string outputYolo = Path.Combine(Root, "samples", "yolov8s");
 Directory.CreateDirectory(outputDetr);
