@@ -399,3 +399,4 @@ FodyWeavers.xsd
 ProcessDump/obj
 
 *.onnx
+!yolov8s.onnx
