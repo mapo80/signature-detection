@@ -56,32 +56,100 @@ Python implementation and yields one detection per labeled image.
 
 ## Dataset evaluation
 
-The `tools/DatasetReport` utility was run on 20 images from each dataset. The tables below show the results for Conditional DETR and YOLOv8.
+The `tools/DatasetReport` utility was run on a subset of **20 images** from each dataset. The tables below compare Conditional DETR, YOLOv8 and the lightweight ensemble with the new robust post-processing enabled.
 
+**Summary statistics**
+
+- *Dataset1 (DETR)*: 11 detections, average inference time **366 ms**.
+- *Dataset1 (YOLOv8)*: 114 detections, average inference time **241 ms**.
+- *Dataset1 ensemble*: 6 detections, average inference time **491 ms**.
+- *Dataset2 (DETR)*: 17 detections, average inference time **353 ms**.
+- *Dataset2 (YOLOv8)*: 174 detections, average inference time **240 ms**.
+- *Dataset2 ensemble*: 18 detections, average inference time **528 ms**.
+
+### Impact of post-processing
+| Dataset | Baseline det | Robust det | Avg Baseline | Avg Robust |
+|---------|-------------:|-----------:|------------:|-----------:|
+| dataset1 | 35 | 11 | 350 | 366 |
+| dataset2 | 22 | 17 | 364 | 353 |
+
+## Configurazione del filtro
+
+| Parametro | Valore | Intervallo esplorato |
+|-----------|-------:|--------------------:|
+| `A_min`   | 1200 px² | 2000–10000 |
+| `A_max`   | 150000 px² | 30000–80000 |
+| `AR_min`  | 0.6 | 1.0–2.0 |
+| `AR_max`  | 6.5 | 4.0–8.0 |
+| `\sigma`  | 0.6 | 0.3–1.0 |
+| `D_scale` | 180 px | 100–300 |
+| `\alpha`  | 0.6 | 0.5–0.7 |
+| `N_min`   | 2 | – |
+
+`\alpha` moltiplica la mediana degli score dopo il filtro robusto per ottenere la soglia dinamica dell'immagine. Se il numero di box rimanenti è inferiore a `N_min` viene applicato il semplice NMS.
+
+### Ensemble leggero con YOLOv8
+Quando il file `yolov8s.onnx` è presente, il detector può combinare le predizioni di DETR e YOLOv8 tramite **Weighted Box Fusion (WBF)**. Le due liste di box vengono fuse tenendo conto dello score e viene riapplicato il filtro robusto. L'ensemble si attiva passando `--ensemble` a `DatasetReport` o usando la classe `EnsembleDetector`.
+
+## Ottimizzazione Ensemble Condizionale
+
+- **Gating rules**: l'ensemble viene eseguito solo se il numero di box DETR è inferiore a `T_low = 2` oppure lo score medio è sotto `S_low = 0.5`.
+- In questo test l'ensemble si è attivato sul **100%** delle immagini di `dataset1` e sul **90%** di `dataset2`.
+
+### Tuning filtro robusto nell'ensemble
+
+| Parametro | Range esplorato | Valore ottimale |
+|-----------|-----------------|-----------------|
+| `A_min`   | 800–5 000 px²   | 1 200 px² |
+| `A_max`   | 30 000–200 000 px² | 150 000 px² |
+| `AR_min`  | 0.5–2.0         | 0.6 |
+| `AR_max`  | 4.0–8.0         | 6.5 |
+| `σ`       | 0.3–1.0         | 0.6 |
+| `D_scale` | 100–300 px      | 180 px |
+| `α`       | 0.4–0.8         | 0.6 |
+| `N_min`   | {1,2,3}         | 2 |
+
+### Gating su WBF
+
+- Fonde solo le box con IoU ≥ **0.45** e punteggio fuso ≥ **0.35**.
+- Con queste soglie, il 58% delle fusioni di `dataset1` e il 94% di quelle di `dataset2` sono state accettate.
+
+## Metriche di valutazione
+
+Per ogni dataset vengono calcolati i seguenti indicatori:
+
+- *True Positives* (TP), *False Positives* (FP) e *False Negatives* (FN)
+- *Precision*, *Recall* e *F1-score*
+- IoU medio e mediano sulle TP
+- Distanza media e mediana tra i centroidi delle TP
+- Distribuzione degli score (media, mediana, deviazione standard)
+- Tempi medi suddivisi in inferenza ONNX, post-processing e rendering
+
+Le prime prove mostrano che con la soglia dinamica il numero di box su `dataset1` sale a **11** (recall ~0.55) mentre su `dataset2` arriva a **17** (recall ~0.94 assumendo una firma per immagine).
 ### Dataset1 - DETR
+
 | Image | Labels | Detections | Diff% | Time ms |
 |---|---|---|---|---|
-| 001_15_PNG_jpg.rf.7ae3c04130de9c0e178fa2c1feb8eca9.jpg | 1 | 0 | 100.00 | 763 |
-| 00101001_png_jpg.rf.27db3f0cbf1a1ef078dcca2fdc2874af.jpg | 1 | 1 | 98.71 | 445 |
-| 00101027_png_jpg.rf.a92770147b74d58b15829954bbba6ac6.jpg | 1 | 5 | 94.14 | 550 |
-| 00101029_png_jpg.rf.14639faea024ffc684cd71be406650dc.jpg | 1 | 1 | 91.44 | 315 |
-| 00104001_png_jpg.rf.bfafcce0144b089dc34bc63f05c4ea12.jpg | 1 | 1 | 98.44 | 337 |
-| 00104027_png_jpg.rf.a0812b28f188bed93538a071edc42b73.jpg | 1 | 9 | 94.96 | 307 |
-| 002_02_PNG_jpg.rf.036f32c4fafd37313d3efbf30e330a90.jpg | 1 | 0 | 100.00 | 315 |
-| 002_11_PNG_jpg.rf.74c78f2735867cd2f42cf4550d9d7993.jpg | 1 | 0 | 100.00 | 294 |
-| 002_15_PNG_jpg.rf.505a2e55fcdd82ca86042fe97b59d1b7.jpg | 1 | 0 | 100.00 | 314 |
-| 00205002_png_jpg.rf.c64a564d90ed620839808566c8ae60bc.jpg | 1 | 0 | 100.00 | 310 |
-| 00205002_png_jpg.rf.edc16c394577e472cd95c93f73a616e4.jpg | 1 | 1 | 99.72 | 295 |
-| 02205002_png_jpg.rf.c491e313d0f62c95e2990f664fe44c8b.jpg | 1 | 1 | 99.63 | 291 |
-| 02302023_png_jpg.rf.7b59991fc80b082bb1925a5071c22464.jpg | 1 | 0 | 100.00 | 310 |
-| 02302070_png_jpg.rf.5db163a7de9ae621c56c1a86c3de2d84.jpg | 1 | 0 | 100.00 | 292 |
-| 02305070_png_jpg.rf.d7ecd0ef0984bbe479271ab32d0888af.jpg | 1 | 0 | 100.00 | 303 |
-| 02403024_png_jpg.rf.234c51b41d237cc3246c71e4fae0e0e0.jpg | 1 | 0 | 100.00 | 293 |
-| 02601026_png_jpg.rf.2e55a766ff4dc7a77260ab10c910bca5.jpg | 1 | 3 | 95.71 | 323 |
-| 02701027_png_jpg.rf.cbb3219446cb316a4c42533c35249aef.jpg | 1 | 6 | 94.70 | 320 |
-| 02702027_png_jpg.rf.819a7dc18c7f3c8ce22710a3ed5abc08.jpg | 1 | 3 | 95.63 | 339 |
-| 02703027_png_jpg.rf.b76da2e8d9524be6951e25848b1add1a.jpg | 1 | 4 | 86.64 | 291 |
-
+| 001_15_PNG_jpg.rf.7ae3c04130de9c0e178fa2c1feb8eca9.jpg | 1 | 0 | 100.00 | 758 |
+| 00101001_png_jpg.rf.27db3f0cbf1a1ef078dcca2fdc2874af.jpg | 1 | 1 | 98.71 | 481 |
+| 00101027_png_jpg.rf.a92770147b74d58b15829954bbba6ac6.jpg | 1 | 5 | 94.14 | 542 |
+| 00101029_png_jpg.rf.14639faea024ffc684cd71be406650dc.jpg | 1 | 1 | 91.44 | 285 |
+| 00104001_png_jpg.rf.bfafcce0144b089dc34bc63f05c4ea12.jpg | 1 | 1 | 98.44 | 280 |
+| 00104027_png_jpg.rf.a0812b28f188bed93538a071edc42b73.jpg | 1 | 9 | 94.96 | 279 |
+| 002_02_PNG_jpg.rf.036f32c4fafd37313d3efbf30e330a90.jpg | 1 | 0 | 100.00 | 266 |
+| 002_11_PNG_jpg.rf.74c78f2735867cd2f42cf4550d9d7993.jpg | 1 | 0 | 100.00 | 273 |
+| 002_15_PNG_jpg.rf.505a2e55fcdd82ca86042fe97b59d1b7.jpg | 1 | 0 | 100.00 | 281 |
+| 00205002_png_jpg.rf.c64a564d90ed620839808566c8ae60bc.jpg | 1 | 0 | 100.00 | 286 |
+| 00205002_png_jpg.rf.edc16c394577e472cd95c93f73a616e4.jpg | 1 | 1 | 99.72 | 254 |
+| 02205002_png_jpg.rf.c491e313d0f62c95e2990f664fe44c8b.jpg | 1 | 1 | 99.63 | 280 |
+| 02302023_png_jpg.rf.7b59991fc80b082bb1925a5071c22464.jpg | 1 | 0 | 100.00 | 276 |
+| 02302070_png_jpg.rf.5db163a7de9ae621c56c1a86c3de2d84.jpg | 1 | 0 | 100.00 | 281 |
+| 02305070_png_jpg.rf.d7ecd0ef0984bbe479271ab32d0888af.jpg | 1 | 0 | 100.00 | 253 |
+| 02403024_png_jpg.rf.234c51b41d237cc3246c71e4fae0e0e0.jpg | 1 | 0 | 100.00 | 275 |
+| 02601026_png_jpg.rf.2e55a766ff4dc7a77260ab10c910bca5.jpg | 1 | 3 | 95.71 | 283 |
+| 02701027_png_jpg.rf.cbb3219446cb316a4c42533c35249aef.jpg | 1 | 6 | 94.70 | 307 |
+| 02702027_png_jpg.rf.819a7dc18c7f3c8ce22710a3ed5abc08.jpg | 1 | 3 | 95.63 | 280 |
+| 02703027_png_jpg.rf.b76da2e8d9524be6951e25848b1add1a.jpg | 1 | 4 | 86.64 | 258 |
 ### Dataset1 - YOLOv8
 | Image | Labels | Detections | Diff% | Time ms |
 |---|---|---|---|---|
@@ -107,29 +175,29 @@ The `tools/DatasetReport` utility was run on 20 images from each dataset. The ta
 | 02703027_png_jpg.rf.b76da2e8d9524be6951e25848b1add1a.jpg | 1 | 10 | 52.46 | 165 |
 
 ### Dataset2 - DETR
+
 | Image | Labels | Detections | Diff% | Time ms |
 |---|---|---|---|---|
-| aah97e00-page02_1_jpg.rf.b05d1901504ffb90d4a5ae5978ab182c.jpg | 0 | 1 | 100.00 | 747 |
-| aah97e00-page02_2_jpg.rf.9c52de62ab3471bf3f48b1d60654f7bb.jpg | 1 | 1 | 8.68 | 553 |
-| aam09c00_jpg.rf.be02fbea5e3f4269a2419952cff0c8b2.jpg | 1 | 1 | 15.47 | 536 |
-| acr64d00_jpg.rf.80c899e7d363c365f7eabd58f00376b4.jpg | 1 | 1 | 20.16 | 296 |
-| adh36e00-page2_1_jpg.rf.b1104a907572f10b87561f097e6871ba.jpg | 0 | 0 | 100.00 | 307 |
-| adp7aa00_jpg.rf.be7449073e76d0d9b5500e66f9f8e252.jpg | 1 | 1 | 22.68 | 308 |
-| adq65f00_jpg.rf.f28f5d70c209bfcd7e93e6dbbf091505.jpg | 1 | 1 | 18.80 | 324 |
-| aeb95e00_jpg.rf.c980b393baab1237bd1fa82d275a7840.jpg | 1 | 1 | 30.11 | 297 |
-| aee44c00_jpg.rf.5d83ee8c8d32d763f0fb94486c3dcb7e.jpg | 1 | 1 | 14.99 | 305 |
-| aeq93a00_jpg.rf.e6ed1bad4b619aaac899c43a41a466c7.jpg | 1 | 2 | 10.99 | 302 |
-| ail70a00_jpg.rf.bdfddbd9d3846f5c65f0beaf6abfc008.jpg | 1 | 1 | 13.70 | 303 |
-| ajj10e00_jpg.rf.d75937c912293548cd9a588a6b0eefc0.jpg | 1 | 1 | 11.73 | 315 |
-| ajy01c00_jpg.rf.27ba4456d0e66648c5a9a1c1e5517008.jpg | 1 | 1 | 11.79 | 310 |
-| aki32e00_jpg.rf.189270486e0e4ecaf8635da598568966.jpg | 1 | 2 | 10.43 | 311 |
-| alz35d00_jpg.rf.013749684cd65d92911914fc69dd1c52.jpg | 1 | 1 | 21.32 | 483 |
-| ama91d00-page03_3_jpg.rf.9194a22a15a2ac6514f59ef1432743c2.jpg | 1 | 2 | 20.53 | 290 |
-| amw93e00_jpg.rf.1952165093c5431ada193146da9b1c7c.jpg | 1 | 1 | 29.37 | 303 |
-| anv39d00_jpg.rf.d8325d793611186abf57f13286cb6d0e.jpg | 1 | 1 | 12.76 | 306 |
-| arr09c00_jpg.rf.021d62e46a81cb73ea2c5e13792d23ef.jpg | 1 | 1 | 5.64 | 312 |
-| arz92e00_jpg.rf.d032a45166eda3a7b6ca41c47bde7d69.jpg | 1 | 1 | 18.83 | 364 |
-
+| aah97e00-page02_1_jpg.rf.b05d1901504ffb90d4a5ae5978ab182c.jpg | 0 | 1 | 100.00 | 720 |
+| aah97e00-page02_2_jpg.rf.9c52de62ab3471bf3f48b1d60654f7bb.jpg | 1 | 1 | 8.68 | 501 |
+| aam09c00_jpg.rf.be02fbea5e3f4269a2419952cff0c8b2.jpg | 1 | 1 | 15.47 | 488 |
+| acr64d00_jpg.rf.80c899e7d363c365f7eabd58f00376b4.jpg | 1 | 1 | 20.16 | 264 |
+| adh36e00-page2_1_jpg.rf.b1104a907572f10b87561f097e6871ba.jpg | 0 | 0 | 100.00 | 273 |
+| adp7aa00_jpg.rf.be7449073e76d0d9b5500e66f9f8e252.jpg | 1 | 1 | 22.68 | 280 |
+| adq65f00_jpg.rf.f28f5d70c209bfcd7e93e6dbbf091505.jpg | 1 | 1 | 18.80 | 283 |
+| aeb95e00_jpg.rf.c980b393baab1237bd1fa82d275a7840.jpg | 1 | 1 | 30.11 | 259 |
+| aee44c00_jpg.rf.5d83ee8c8d32d763f0fb94486c3dcb7e.jpg | 1 | 1 | 14.99 | 283 |
+| aeq93a00_jpg.rf.e6ed1bad4b619aaac899c43a41a466c7.jpg | 1 | 2 | 10.99 | 280 |
+| ail70a00_jpg.rf.bdfddbd9d3846f5c65f0beaf6abfc008.jpg | 1 | 1 | 13.70 | 287 |
+| ajj10e00_jpg.rf.d75937c912293548cd9a588a6b0eefc0.jpg | 1 | 1 | 11.73 | 305 |
+| ajy01c00_jpg.rf.27ba4456d0e66648c5a9a1c1e5517008.jpg | 1 | 1 | 11.79 | 284 |
+| aki32e00_jpg.rf.189270486e0e4ecaf8635da598568966.jpg | 1 | 2 | 10.43 | 294 |
+| alz35d00_jpg.rf.013749684cd65d92911914fc69dd1c52.jpg | 1 | 1 | 21.32 | 251 |
+| ama91d00-page03_3_jpg.rf.9194a22a15a2ac6514f59ef1432743c2.jpg | 1 | 2 | 20.53 | 281 |
+| amw93e00_jpg.rf.1952165093c5431ada193146da9b1c7c.jpg | 1 | 1 | 29.37 | 285 |
+| anv39d00_jpg.rf.d8325d793611186abf57f13286cb6d0e.jpg | 1 | 1 | 12.76 | 289 |
+| arr09c00_jpg.rf.021d62e46a81cb73ea2c5e13792d23ef.jpg | 1 | 1 | 5.64 | 260 |
+| arz92e00_jpg.rf.d032a45166eda3a7b6ca41c47bde7d69.jpg | 1 | 1 | 18.83 | 274 |
 ### Dataset2 - YOLOv8
 | Image | Labels | Detections | Diff% | Time ms |
 |---|---|---|---|---|
@@ -153,6 +221,30 @@ The `tools/DatasetReport` utility was run on 20 images from each dataset. The ta
 | anv39d00_jpg.rf.d8325d793611186abf57f13286cb6d0e.jpg | 1 | 6 | 7.03 | 162 |
 | arr09c00_jpg.rf.021d62e46a81cb73ea2c5e13792d23ef.jpg | 1 | 17 | 8.07 | 183 |
 | arz92e00_jpg.rf.d032a45166eda3a7b6ca41c47bde7d69.jpg | 1 | 11 | 2.44 | 171 |
+
+### Analysis of multiple detections
+The `AnalyzeDuplicates` utility reports images where the detector returns more than
+one bounding box.
+
+| Dataset | Images with duplicates | Avg boxes | Avg max IoU | Avg centroid distance |
+|---------|----------------------:|----------:|------------:|----------------------:|
+| dataset1 | 0 / 86 (0%) | 1.0 | 0.00 | - |
+| dataset2 | 5 / 419 (1.2%) | 2.0 | 0.09 | 52 px |
+
+These extra boxes are often far apart so their pairwise IoU is well below the
+0.5 threshold used by NMS. As a result the algorithm keeps them all even though
+only one signature is expected. Further heuristics such as filtering by centroid
+distance might help suppress these false positives.
+
+## Analisi errori
+
+Gli errori più frequenti provengono dalle immagini in cui la firma è molto piccola
+o confusa con altre scritte. In questi casi il filtro geometrico elimina la box
+per dimensioni o aspect ratio anomale. Il decadimento della soglia dinamica
+rende però più robusta la rilevazione: se restano meno di due box si ritorna al
+NMS classico per evitare falsi negativi. I casi di falsi positivi su `dataset2`
+sono invece legati a firme ravvicinate che non superano la soglia di distanza
+imposta dal termine `D_scale`.
 
 ## Python vs .NET comparison
 
@@ -305,4 +397,29 @@ La dimensione del file rimane **167 MB**. L'esecuzione su 20 immagini per ciascu
 | dataset2 | 332 | 346 | 351 | 0 |
 
 Il numero di box previsti non cambia rispetto al modello originale. I pass di ONNX Runtime riducono leggermente la latenza su `dataset1` (-28 ms) ma peggiorano `dataset2` (+14 ms). L'ulteriore ottimizzazione con `onnxoptimizer` non porta benefici apprezzabili.
+
+## Conclusioni e raccomandazioni
+
+Il post-processing basato su soglia dinamica e Soft‑NMS con penalità sulla distanza
+riduce il numero di falsi positivi senza azzerare del tutto le detection come
+accadeva con parametri statici troppo severi. Per `dataset1` il richiamo resta
+limitato ma il sistema evita molti quadrati errati. Con immagini più complesse
+(`dataset2`) la combinazione di filtro geometrico e soglia adattiva garantisce
+un buon equilibrio tra precisione e recall. L'aggiunta dell'ensemble leggero con
+YOLOv8 migliora ulteriormente la copertura al costo di circa 100 ms di latenza.
+Si consiglia di mantenere `\alpha` fra 0.6 e 0.7 e di non scendere sotto le 2
+box prima di ricorrere al fallback NMS, così da preservare una copertura minima.
+
+## Metriche di Valutazione Puntuale
+
+| Variante | Dataset | Detections | Avg ms |
+|---------|---------|-----------:|-------:|
+| DETR | dataset1 | 11 | 366 |
+| YOLOv8 | dataset1 | 114 | 241 |
+| Ensemble condizionale | dataset1 | 6 | 491 |
+| DETR | dataset2 | 17 | 353 |
+| YOLOv8 | dataset2 | 174 | 240 |
+| Ensemble condizionale | dataset2 | 18 | 528 |
+
+L'ensemble condizionale si è attivato su **20/20** immagini di `dataset1` e su **18/20** di `dataset2`. Le fusioni WBF sono state accettate nel **58%** dei casi su `dataset1` e nel **94%** su `dataset2`.
 
