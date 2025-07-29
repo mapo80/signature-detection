@@ -56,20 +56,20 @@ Python implementation and yields one detection per labeled image.
 
 ## Dataset evaluation
 
-The `tools/DatasetReport` utility was run on 20 images from each dataset. The tables below show the results for Conditional DETR and YOLOv8.
+The `tools/DatasetReport` utility was run on **86 images** from `dataset1` and **100 images** from `dataset2`. The tables below show the results for Conditional DETR alone and for the lightweight ensemble with YOLOv8.
 
 **Summary statistics**
 
-- *Dataset1*: 20 labels, 35 detections, average inference time **324 ms**.
-- *Dataset2*: 18 labels, 22 detections, average inference time **322 ms**.
-- *Dataset1 with robust filter*: 20 labels, 11 detections, average inference time **331 ms**.
-- *Dataset2 with robust filter*: 18 labels, 17 detections, average inference time **321 ms**.
+- *Dataset1 (DETR)*: 78 labels, 71 detections, average inference time **278 ms**.
+- *Dataset2 (DETR)*: 88 labels, 97 detections, average inference time **275 ms**.
+- *Dataset1 ensemble*: 78 labels, 118 detections, average inference time **407 ms**.
+- *Dataset2 ensemble*: 88 labels, 102 detections, average inference time **383 ms**.
 
 ### Impact of post-processing
-| Dataset | Labels | Before det | NMS det | Robust det | Avg before | Avg NMS | Avg robust |
-|---------|-------:|-----------:|-------:|-----------:|-----------:|--------:|-----------:|
-| dataset1 | 20 | 35 | 35 | 11 | 350 | 324 | 331 |
-| dataset2 | 18 | 22 | 22 | 17 | 364 | 322 | 321 |
+| Dataset | Labels | DETR det | Ensemble det | Avg DETR | Avg Ensemble |
+|---------|------:|---------:|-------------:|---------:|-------------:|
+| dataset1 | 78 | 71 | 118 | 278 | 407 |
+| dataset2 | 88 | 97 | 102 | 275 | 383 |
 
 ## Configurazione del filtro
 
@@ -85,6 +85,9 @@ The `tools/DatasetReport` utility was run on 20 images from each dataset. The ta
 | `N_min`   | 2 | – |
 
 `\alpha` moltiplica la mediana degli score dopo il filtro robusto per ottenere la soglia dinamica dell'immagine. Se il numero di box rimanenti è inferiore a `N_min` viene applicato il semplice NMS.
+
+### Ensemble leggero con YOLOv8
+Quando il file `yolov8s.onnx` è presente, il detector può combinare le predizioni di DETR e YOLOv8 tramite **Weighted Box Fusion (WBF)**. Le due liste di box vengono fuse tenendo conto dello score e viene riapplicato il filtro robusto. L'ensemble si attiva passando `--ensemble` a `DatasetReport` o usando la classe `EnsembleDetector`.
 
 ## Metriche di valutazione
 
@@ -377,7 +380,8 @@ riduce il numero di falsi positivi senza azzerare del tutto le detection come
 accadeva con parametri statici troppo severi. Per `dataset1` il richiamo resta
 limitato ma il sistema evita molti quadrati errati. Con immagini più complesse
 (`dataset2`) la combinazione di filtro geometrico e soglia adattiva garantisce
-un buon equilibrio tra precisione e recall. Si consiglia di mantenere `\alpha`
-fra 0.6 e 0.7 e di non scendere sotto le 2 box prima di ricorrere al fallback
-NMS, così da preservare una copertura minima.
+un buon equilibrio tra precisione e recall. L'aggiunta dell'ensemble leggero con
+YOLOv8 migliora ulteriormente la copertura al costo di circa 100 ms di latenza.
+Si consiglia di mantenere `\alpha` fra 0.6 e 0.7 e di non scendere sotto le 2
+box prima di ricorrere al fallback NMS, così da preservare una copertura minima.
 

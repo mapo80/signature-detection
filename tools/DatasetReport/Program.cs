@@ -33,10 +33,12 @@ float IoU(float x1, float y1, float x2, float y2, float x1b, float y1b, float x2
 string dataset = "dataset1";
 bool useYolo = false;
 bool optimizeSession = false;
+bool ensemble = false;
 int max = int.MaxValue;
 foreach (var a in args)
 {
     if (a == "--yolo") useYolo = true;
+    else if (a == "--ensemble") { useYolo = true; ensemble = true; }
     else if (a == "--ort-opt") optimizeSession = true;
     else if (a.StartsWith("--max=")) max = int.Parse(a.Substring(6));
     else dataset = a;
@@ -54,7 +56,13 @@ if (optimizeSession)
     opts = new SessionOptions();
     opts.GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL;
 }
-using var detectorObj = useYolo ? (IDisposable)new YoloV8Detector(yoloPath) : new SignatureDetector(OnnxPath, 640, opts);
+IDisposable detectorObj;
+if (ensemble)
+    detectorObj = new EnsembleDetector(OnnxPath, yoloPath);
+else if (useYolo)
+    detectorObj = new YoloV8Detector(yoloPath);
+else
+    detectorObj = new SignatureDetector(OnnxPath, 640, opts);
 dynamic detector = detectorObj;
 double totalMs = 0;
 foreach (var img in images)
