@@ -11,10 +11,10 @@ public class SignatureDetector : IDisposable
     private readonly float[] _std = {0.229f, 0.224f, 0.225f};
     public int InputSize { get; }
 
-    public SignatureDetector(string modelPath, int inputSize = 640)
+    public SignatureDetector(string modelPath, int inputSize = 640, SessionOptions? options = null)
     {
         InputSize = inputSize;
-        _session = new InferenceSession(modelPath);
+        _session = options is null ? new InferenceSession(modelPath) : new InferenceSession(modelPath, options);
     }
 
     public void Dispose()
