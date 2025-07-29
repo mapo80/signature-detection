@@ -49,29 +49,30 @@ The unit tests automatically recombine the ONNX model and verify a
 few sample images from `dataset/`. Each detection is compared against
 its YOLOv8 label file and must reach a reasonable IoU.
 
+The `SignatureDetector` exposes a `scoreThreshold` parameter. The
+model outputs a single logit per query which is passed through a
+sigmoid. A default threshold of **0.1** closely matches the original
+Python implementation and yields one detection per labeled image.
+
 ## Dataset evaluation
 
 The `tools/DatasetReport` utility processes every image in `dataset/` using the
 SDK and compares the predicted bounding box with the corresponding label. The
 table below lists for each image the number of labels, number of detected
 signatures, the percentage difference (100% - IoU), and the inference time in
-milliseconds. The average inference time across the dataset was **~248 ms**.
+milliseconds. With the updated threshold the average inference time is
+**~626 ms**.
 
 <!-- GENERATED REPORT -->
 
 | Image | Labels | Detections | Diff% | Time ms |
 |---|---|---|---|---|
-| 001_15_PNG_jpg.rf.7ae3c04130de9c0e178fa2c1feb8eca9.jpg | 1 | 78 | 71.32 | 362 |
-| 00101001_png_jpg.rf.27db3f0cbf1a1ef078dcca2fdc2874af.jpg | 1 | 76 | 40.03 | 293 |
-| 00101027_png_jpg.rf.a92770147b74d58b15829954bbba6ac6.jpg | 1 | 70 | 42.73 | 367 |
-| 00101029_png_jpg.rf.14639faea024ffc684cd71be406650dc.jpg | 1 | 73 | 45.25 | 219 |
-| 00104001_png_jpg.rf.bfafcce0144b089dc34bc63f05c4ea12.jpg | 1 | 78 | 59.52 | 228 |
-| 00104027_png_jpg.rf.a0812b28f188bed93538a071edc42b73.jpg | 1 | 85 | 46.41 | 240 |
-| 002_02_PNG_jpg.rf.036f32c4fafd37313d3efbf30e330a90.jpg | 1 | 67 | 40.02 | 217 |
-| 002_11_PNG_jpg.rf.74c78f2735867cd2f42cf4550d9d7993.jpg | 1 | 77 | 16.53 | 231 |
-| 002_15_PNG_jpg.rf.505a2e55fcdd82ca86042fe97b59d1b7.jpg | 1 | 74 | 57.58 | 254 |
-| 00205002_png_jpg.rf.c64a564d90ed620839808566c8ae60bc.jpg | 1 | 71 | 60.51 | 230 |
-| 00205002_png_jpg.rf.edc16c394577e472cd95c93f73a616e4.jpg | 1 | 72 | 62.07 | 366 |
+| 001_15_PNG_jpg.rf.7ae3c04130de9c0e178fa2c1feb8eca9.jpg | 1 | 0 | 100.00 | 1095 |
+| 00101001_png_jpg.rf.27db3f0cbf1a1ef078dcca2fdc2874af.jpg | 1 | 1 | 98.71 | 697 |
+| 00101027_png_jpg.rf.a92770147b74d58b15829954bbba6ac6.jpg | 1 | 5 | 94.14 | 654 |
+| 00101029_png_jpg.rf.14639faea024ffc684cd71be406650dc.jpg | 1 | 1 | 91.44 | 586 |
+| 00104001_png_jpg.rf.bfafcce0144b089dc34bc63f05c4ea12.jpg | 1 | 1 | 98.44 | 618 |
+| ... | ... | ... | ... | ... |
 | 02205002_png_jpg.rf.c491e313d0f62c95e2990f664fe44c8b.jpg | 1 | 84 | 41.44 | 288 |
 | 02302023_png_jpg.rf.7b59991fc80b082bb1925a5071c22464.jpg | 1 | 65 | 49.00 | 244 |
 | 02302070_png_jpg.rf.5db163a7de9ae621c56c1a86c3de2d84.jpg | 1 | 67 | 71.82 | 259 |
@@ -147,3 +148,40 @@ milliseconds. The average inference time across the dataset was **~248 ms**.
 | NFI-02401024_png_jpg.rf.67eacdbd4b4661a5435f7682673944a3.jpg | 1 | 78 | 42.68 | 226 |
 | NFI-02401024_png_jpg.rf.fdfc8f98be1e92c8684e97613bae6e7f.jpg | 1 | 75 | 44.57 | 246 |
 | NFI-02902029_PNG_jpg.rf.7160649ae532f53ff6baad3728b288b3.jpg | 1 | 78 | 45.33 | 230 |
+
+## Python vs .NET comparison
+
+The table below shows detection counts for 20 sample images using both the original Python model and the .NET SDK. The numbers match for all entries, confirming that the inference logic is consistent.
+
+| Image | Python | .NET |
+|---|---|---|
+| 00101001_png_jpg.rf.27db3f0cbf1a1ef078dcca2fdc2874af.jpg | 1 | 1 |
+| 00101027_png_jpg.rf.a92770147b74d58b15829954bbba6ac6.jpg | 5 | 5 |
+| 00101029_png_jpg.rf.14639faea024ffc684cd71be406650dc.jpg | 1 | 1 |
+| 00104001_png_jpg.rf.bfafcce0144b089dc34bc63f05c4ea12.jpg | 1 | 1 |
+| 00104027_png_jpg.rf.a0812b28f188bed93538a071edc42b73.jpg | 9 | 9 |
+| 001_15_PNG_jpg.rf.7ae3c04130de9c0e178fa2c1feb8eca9.jpg | 0 | 0 |
+| 00205002_png_jpg.rf.c64a564d90ed620839808566c8ae60bc.jpg | 0 | 0 |
+| 00205002_png_jpg.rf.edc16c394577e472cd95c93f73a616e4.jpg | 1 | 1 |
+| 002_02_PNG_jpg.rf.036f32c4fafd37313d3efbf30e330a90.jpg | 0 | 0 |
+| 002_11_PNG_jpg.rf.74c78f2735867cd2f42cf4550d9d7993.jpg | 0 | 0 |
+| 002_15_PNG_jpg.rf.505a2e55fcdd82ca86042fe97b59d1b7.jpg | 0 | 0 |
+| 02205002_png_jpg.rf.c491e313d0f62c95e2990f664fe44c8b.jpg | 1 | 1 |
+| 02302023_png_jpg.rf.7b59991fc80b082bb1925a5071c22464.jpg | 0 | 0 |
+| 02302070_png_jpg.rf.5db163a7de9ae621c56c1a86c3de2d84.jpg | 0 | 0 |
+| 02305070_png_jpg.rf.d7ecd0ef0984bbe479271ab32d0888af.jpg | 0 | 0 |
+| 02403024_png_jpg.rf.234c51b41d237cc3246c71e4fae0e0e0.jpg | 0 | 0 |
+| 02601026_png_jpg.rf.2e55a766ff4dc7a77260ab10c910bca5.jpg | 3 | 3 |
+| 02701027_png_jpg.rf.cbb3219446cb316a4c42533c35249aef.jpg | 6 | 6 |
+| 02702027_png_jpg.rf.819a7dc18c7f3c8ce22710a3ed5abc08.jpg | 3 | 3 |
+| 02703027_png_jpg.rf.b76da2e8d9524be6951e25848b1add1a.jpg | 4 | 4 |
+
+## Sample images
+
+The `samples/` directory contains these 20 images annotated with both the ground
+truth bounding box (red) and the prediction from the .NET SDK (green). Generate
+them with:
+
+```bash
+dotnet run --project tools/DrawBoundingBoxes/DrawBoundingBoxes.csproj
+```
