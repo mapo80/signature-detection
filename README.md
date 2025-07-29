@@ -62,14 +62,14 @@ The `tools/DatasetReport` utility was run on 20 images from each dataset. The ta
 
 - *Dataset1*: 20 labels, 35 detections, average inference time **324 ms**.
 - *Dataset2*: 18 labels, 22 detections, average inference time **322 ms**.
-- *Dataset1 with robust filter*: 20 labels, 0 detections, average inference time **364 ms**.
-- *Dataset2 with robust filter*: 18 labels, 7 detections, average inference time **411 ms**.
+- *Dataset1 with robust filter*: 20 labels, 7 detections, average inference time **314 ms**.
+- *Dataset2 with robust filter*: 18 labels, 15 detections, average inference time **300 ms**.
 
 ### Impact of post-processing
 | Dataset | Labels | Before det | NMS det | Robust det | Avg before | Avg NMS | Avg robust |
 |---------|-------:|-----------:|-------:|-----------:|-----------:|--------:|-----------:|
-| dataset1 | 20 | 35 | 35 | 0 | 350 | 324 | 364 |
-| dataset2 | 18 | 22 | 22 | 7 | 364 | 322 | 411 |
+| dataset1 | 20 | 35 | 35 | 7 | 350 | 324 | 314 |
+| dataset2 | 18 | 22 | 22 | 15 | 364 | 322 | 300 |
 ### Dataset1 - DETR
 
 | Image | Labels | Detections | Diff% | Time ms |
@@ -172,8 +172,8 @@ one bounding box.
 
 | Dataset | Images with duplicates | Avg boxes | Avg max IoU | Avg centroid distance |
 |---------|----------------------:|----------:|------------:|----------------------:|
-| dataset1 | 22 / 86 (25.6%) | 2.7 | 0.10 | 126 px |
-| dataset2 | 53 / 419 (12.6%) | 3.3 | 0.07 | 159 px |
+| dataset1 | 0 / 86 (0%) | 1.0 | 0.00 | - |
+| dataset2 | 5 / 419 (1.2%) | 2.0 | 0.09 | 52 px |
 
 These extra boxes are often far apart so their pairwise IoU is well below the
 0.5 threshold used by NMS. As a result the algorithm keeps them all even though
