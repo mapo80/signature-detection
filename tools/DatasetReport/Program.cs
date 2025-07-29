@@ -62,11 +62,10 @@ if (ensemble)
     var detrParams = dataset == "dataset2" ? SignatureDetector.Dataset2Params : SignatureDetector.DetrParams;
     var ensParams = dataset == "dataset2" ? SignatureDetector.Dataset2Params : SignatureDetector.EnsembleParams;
     int tLow = dataset == "dataset2" ? 18 : 5;
-    float vHigh = dataset == "dataset2" ? 1f : 0.1f;
-    detectorObj = new EnsembleDetector(OnnxPath, yoloPath, true, tLow, vHigh, 3,
-        dataset == "dataset2" ? 0.50f : 0.55f,
-        dataset == "dataset2" ? 0.40f : 0.45f,
-        detrParams, ensParams);
+    float wbfIou = dataset == "dataset2" ? 0.50f : 0.55f;
+    float wbfScore = dataset == "dataset2" ? 0.35f : 0.45f;
+    detectorObj = new EnsembleDetector(OnnxPath, yoloPath, true, tLow,
+        wbfIou, wbfScore, detrParams, ensParams);
 }
 else if (useYolo)
     detectorObj = new YoloV8Detector(yoloPath);
@@ -88,7 +87,7 @@ foreach (var img in images)
     else if (detectorObj is SignatureDetector d)
     {
         var p = dataset == "dataset2" ? SignatureDetector.Dataset2Params : SignatureDetector.DetrParams;
-        preds = d.Predict(img, 0.1f, p);
+        preds = d.Predict(img, out _, 0.1f, p);
     }
     else if (detectorObj is EnsembleDetector ensDet)
         preds = ensDet.Predict(img);

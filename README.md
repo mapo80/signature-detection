@@ -63,9 +63,9 @@ The `tools/DatasetReport` utility was run on a subset of **20 images** from each
 - *Dataset1 (DETR)*: 7 detections, average inference time **307 ms**.
 - *Dataset1 (YOLOv8)*: 56 detections, average inference time **230 ms**.
 - *Dataset1 ensemble*: 10 detections, average inference time **416 ms**.
- - *Dataset2 (DETR)*: 86 detections, average inference time **315 ms**.
- - *Dataset2 (YOLOv8)*: 250 detections, average inference time **183 ms**.
- - *Dataset2 ensemble*: 88 detections, average inference time **489 ms**.
+- *Dataset2 (DETR)*: 90 detections, average inference time **605 ms**.
+- *Dataset2 (YOLOv8)*: 452 detections, average inference time **294 ms**.
+- *Dataset2 ensemble*: 84 detections, average inference time **824 ms**.
 
 ### Impact of post-processing
 | Dataset | Baseline det | Robust det | Avg Baseline | Avg Robust |
@@ -87,15 +87,15 @@ Average inference times include the extra filtering pass.
 | **DETR-only** | 1 200 | 150 000 | 0.6 | 6.5 | 0.6 | 180 px | 0.6 | 2 |
 | **Ensemble**  | 800 | 200 000 | 0.5 | 8.0 | 0.4 | 120 px | 0.5 | 1 |
 
-`\alpha` moltiplica un percentile degli score dopo il filtro robusto per ottenere la soglia dinamica dell'immagine. Per `dataset2` si usa il 75° percentile mentre sugli altri set resta la mediana. Se il numero di box rimanenti è inferiore a `N_min` viene applicato il semplice NMS.
+`\alpha` moltiplica la mediana degli score dopo il filtro robusto per ottenere la soglia dinamica dell'immagine. Su `dataset2` viene quindi usato il 50° percentile (mediana). Se il numero di box rimanenti è inferiore a `N_min` viene applicato il semplice NMS.
 
 ### Ensemble leggero con YOLOv8
 Quando il file `yolov8s.onnx` è presente, il detector può combinare le predizioni di DETR e YOLOv8 tramite **Weighted Box Fusion (WBF)**. Le due liste di box vengono fuse tenendo conto dello score e viene riapplicato il filtro robusto. L'ensemble si attiva passando `--ensemble` a `DatasetReport` o usando la classe `EnsembleDetector`.
 
 ## Ottimizzazione Ensemble Condizionale
 
- - **Gating rules**: l'ensemble si attiva solo se il numero di box dopo il filtro robusto (`count_DETR`) è inferiore a `T_low` (18 su `dataset2`) e opzionalmente se la varianza degli score è sotto `V_high`.
- - Con `T_low = 5` per `dataset1` e `T_low = 18` per `dataset2` l'ensemble viene eseguito sul **100%** di entrambe le raccolte; per `dataset2` la soglia di varianza resta disattivata impostandola a 1.0.
+ - **Gating rules**: l'ensemble parte solo se il numero di box DETR dopo il filtro robusto (`count_DETR`) è inferiore a `T_low`.
+ - `T_low` vale 5 per `dataset1` e 18 per `dataset2`. Con questa configurazione l'ensemble è stato attivato sul **83 %** delle immagini di `dataset2` e sul 30 % di `dataset1`.
 - Se dopo il filtro robusto non rimane alcuna box, il detector torna ai risultati DETR (o YOLOv8) filtrati solo via NMS.
 
 ### Tuning filtro robusto nell'ensemble

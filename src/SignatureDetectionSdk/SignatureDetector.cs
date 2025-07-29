@@ -23,9 +23,9 @@ public class SignatureDetector : IDisposable
     public static readonly RobustParams Dataset2Params = new(
         1731f, 12928f,
         1.836f, 7.838f,
-        0.4f, 120f,
-        0.6f, 1,
-        0.75f);
+        0.4f, 80f,
+        0.7f, 1,
+        0.50f);
 
     public int InputSize { get; }
 
@@ -40,8 +40,8 @@ public class SignatureDetector : IDisposable
         _session.Dispose();
     }
 
-    public float[][] Predict(string imagePath, float scoreThreshold = 0.1f,
-        RobustParams? parameters = null)
+    public float[][] Predict(string imagePath, out int robustCount,
+        float scoreThreshold = 0.1f, RobustParams? parameters = null)
     {
         using var image = SKBitmap.Decode(imagePath);
         using var resized = image.Resize(new SKImageInfo(InputSize, InputSize), SKFilterQuality.High);
@@ -75,6 +75,7 @@ public class SignatureDetector : IDisposable
         var dets = PostProcessing.ToPixelBoxes(boxes, resized.Width, resized.Height, scores);
         dets = PostProcessing.FilterByGeometry(dets, p.AreaMin, p.AreaMax, p.ArMin, p.ArMax);
         var robust = PostProcessing.SoftNmsDistance(dets, p.Sigma, p.DistScale);
+        robustCount = robust.Count;
         float dynamicThresh = 0.3f;
         if (robust.Count > 0)
         {
@@ -87,5 +88,9 @@ public class SignatureDetector : IDisposable
         List<float[]> final = filtered.Count < p.NMin ? nms : filtered;
         return final.ToArray();
     }
+
+    public float[][] Predict(string imagePath, float scoreThreshold = 0.1f,
+        RobustParams? parameters = null)
+        => Predict(imagePath, out _, scoreThreshold, parameters);
 
 }
