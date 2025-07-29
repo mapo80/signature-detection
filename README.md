@@ -164,6 +164,20 @@ The `tools/DatasetReport` utility was run on 20 images from each dataset. The ta
 | arr09c00_jpg.rf.021d62e46a81cb73ea2c5e13792d23ef.jpg | 1 | 17 | 8.07 | 183 |
 | arz92e00_jpg.rf.d032a45166eda3a7b6ca41c47bde7d69.jpg | 1 | 11 | 2.44 | 171 |
 
+### Analysis of multiple detections
+The `AnalyzeDuplicates` utility reports images where the detector returns more than
+one bounding box.
+
+| Dataset | Images with duplicates | Avg boxes | Avg max IoU | Avg centroid distance |
+|---------|----------------------:|----------:|------------:|----------------------:|
+| dataset1 | 22 / 86 (25.6%) | 2.7 | 0.10 | 126 px |
+| dataset2 | 53 / 419 (12.6%) | 3.3 | 0.07 | 159 px |
+
+These extra boxes are often far apart so their pairwise IoU is well below the
+0.5 threshold used by NMS. As a result the algorithm keeps them all even though
+only one signature is expected. Further heuristics such as filtering by centroid
+distance might help suppress these false positives.
+
 ## Python vs .NET comparison
 
 The table below shows detection counts for 20 sample images using both the original Python model and the .NET SDK. The numbers match for all entries, confirming that the inference logic is consistent.
