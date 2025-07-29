@@ -46,7 +46,7 @@ dotnet test
 ```
 
 The unit tests automatically recombine the ONNX model and verify a
-few sample images from `dataset/`. Each detection is compared against
+few sample images from `dataset/dataset1`. Each detection is compared against
 its YOLOv8 label file and must reach a reasonable IoU.
 
 The `SignatureDetector` exposes a `scoreThreshold` parameter. The
@@ -56,7 +56,7 @@ Python implementation and yields one detection per labeled image.
 
 ## Dataset evaluation
 
-The `tools/DatasetReport` utility processes every image in `dataset/` using the
+The `tools/DatasetReport` utility processes every image in `dataset/dataset1` using the
 SDK and compares the predicted bounding box with the corresponding label. The
 table below lists for each image the number of labels, number of detected
 signatures, the percentage difference (100% - IoU), and the inference time in
@@ -149,6 +149,25 @@ milliseconds. With the updated threshold the average inference time is
 | NFI-02401024_png_jpg.rf.fdfc8f98be1e92c8684e97613bae6e7f.jpg | 1 | 75 | 44.57 | 246 |
 | NFI-02902029_PNG_jpg.rf.7160649ae532f53ff6baad3728b288b3.jpg | 1 | 78 | 45.33 | 230 |
 
+### Dataset 2 evaluation
+
+The `tools/DatasetReport` utility can also process the images from `dataset/dataset2`.
+Below is a short summary.
+
+| Image | Labels | Detections | Diff% | Time ms |
+|---|---|---|---|---|
+| aah97e00-page02_1_jpg.rf.b05d1901504ffb90d4a5ae5978ab182c.jpg | 0 | 1 | 100.00 | 728 |
+| aah97e00-page02_2_jpg.rf.9c52de62ab3471bf3f48b1d60654f7bb.jpg | 1 | 1 | 8.68 | 667 |
+| aam09c00_jpg.rf.be02fbea5e3f4269a2419952cff0c8b2.jpg | 1 | 1 | 15.47 | 706 |
+| acr64d00_jpg.rf.80c899e7d363c365f7eabd58f00376b4.jpg | 1 | 1 | 20.16 | 466 |
+| adh36e00-page2_1_jpg.rf.b1104a907572f10b87561f097e6871ba.jpg | 0 | 0 | 100.00 | 290 |
+| ... | ... | ... | ... | ... |
+| zlw44e00-page02_1_jpg.rf.725f6c054c694edbc90f269bf4f7a8b1.jpg | 0 | 0 | 100.00 | 233 |
+| zny04f00_1_jpg.rf.1bb506e5df60f54b238d63010581369b.jpg | 0 | 0 | 100.00 | 359 |
+| zny04f00_2_jpg.rf.415115094043d4c6689735433d06bb53.jpg | 1 | 1 | 3.62 | 219 |
+| zss86d00_jpg.rf.7b5d6b9e7f3ce5e371e67b1388d9beb1.jpg | 1 | 1 | 8.27 | 218 |
+| zvs17e00_jpg.rf.e2b6a6ace711feeecdca4f67c63fc5ee.jpg | 1 | 2 | 20.53 | 213 |
+
 ## Python vs .NET comparison
 
 The table below shows detection counts for 20 sample images using both the original Python model and the .NET SDK. The numbers match for all entries, confirming that the inference logic is consistent.
@@ -176,9 +195,34 @@ The table below shows detection counts for 20 sample images using both the origi
 | 02702027_png_jpg.rf.819a7dc18c7f3c8ce22710a3ed5abc08.jpg | 3 | 3 |
 | 02703027_png_jpg.rf.b76da2e8d9524be6951e25848b1add1a.jpg | 4 | 4 |
 
+### Dataset 2 Python vs .NET comparison
+
+| Image | Python | .NET |
+|---|---|---|
+| aah97e00-page02_1_jpg.rf.b05d1901504ffb90d4a5ae5978ab182c.jpg | 1 | 1 |
+| aah97e00-page02_2_jpg.rf.9c52de62ab3471bf3f48b1d60654f7bb.jpg | 1 | 1 |
+| aam09c00_jpg.rf.be02fbea5e3f4269a2419952cff0c8b2.jpg | 1 | 1 |
+| acr64d00_jpg.rf.80c899e7d363c365f7eabd58f00376b4.jpg | 1 | 1 |
+| adh36e00-page2_1_jpg.rf.b1104a907572f10b87561f097e6871ba.jpg | 0 | 0 |
+| adp7aa00_jpg.rf.be7449073e76d0d9b5500e66f9f8e252.jpg | 1 | 1 |
+| adq65f00_jpg.rf.f28f5d70c209bfcd7e93e6dbbf091505.jpg | 1 | 1 |
+| aeb95e00_jpg.rf.c980b393baab1237bd1fa82d275a7840.jpg | 1 | 1 |
+| aee44c00_jpg.rf.5d83ee8c8d32d763f0fb94486c3dcb7e.jpg | 1 | 1 |
+| aeq93a00_jpg.rf.e6ed1bad4b619aaac899c43a41a466c7.jpg | 2 | 2 |
+| ail70a00_jpg.rf.bdfddbd9d3846f5c65f0beaf6abfc008.jpg | 1 | 1 |
+| ajj10e00_jpg.rf.d75937c912293548cd9a588a6b0eefc0.jpg | 1 | 1 |
+| ajy01c00_jpg.rf.27ba4456d0e66648c5a9a1c1e5517008.jpg | 1 | 1 |
+| aki32e00_jpg.rf.189270486e0e4ecaf8635da598568966.jpg | 2 | 2 |
+| alz35d00_jpg.rf.013749684cd65d92911914fc69dd1c52.jpg | 1 | 1 |
+| ama91d00-page03_3_jpg.rf.9194a22a15a2ac6514f59ef1432743c2.jpg | 2 | 2 |
+| amw93e00_jpg.rf.1952165093c5431ada193146da9b1c7c.jpg | 1 | 1 |
+| anv39d00_jpg.rf.d8325d793611186abf57f13286cb6d0e.jpg | 1 | 1 |
+| arr09c00_jpg.rf.021d62e46a81cb73ea2c5e13792d23ef.jpg | 1 | 1 |
+| arz92e00_jpg.rf.d032a45166eda3a7b6ca41c47bde7d69.jpg | 1 | 1 |
+
 ## Sample images
 
-The `samples/detr` and `samples/yolov8s` directories contain 20 sample images each. Every image is annotated with the ground truth box (red) and the prediction from the respective model. Generate them with:
+The `samples/detr` and `samples/yolov8s` directories contain 20 sample images each. Every image is annotated with the ground truth box (red) and the prediction from the respective model. Set `DATASET_SUBDIR` to `dataset2` to generate samples for the second dataset. Generate them with:
 
 ```bash
 dotnet run --project tools/DrawBoundingBoxes/DrawBoundingBoxes.csproj
@@ -192,7 +236,7 @@ repository (an authenticated HuggingFace account may be required) and place it i
 
 ## YOLOv8s Python inference
 
-The repository also includes `yolov8_inference.py` which performs inference using the `ultralytics` package and draws both the predicted boxes and the ground truth labels. The script expects `yolov8s.onnx` in the `model/` directory and reads images from `dataset/`. Annotated results are written to `samples/yolov8s_py/`.
+The repository also includes `yolov8_inference.py` which performs inference using the `ultralytics` package and draws both the predicted boxes and the ground truth labels. The script expects `yolov8s.onnx` in the `model/` directory and reads images from `dataset/dataset1` by default. Set the `DATASET_SUBDIR` environment variable to `dataset2` to run it on the second dataset. Annotated results are written to `samples/yolov8s_py/`.
 
 Run it with:
 

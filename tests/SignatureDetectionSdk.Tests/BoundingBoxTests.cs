@@ -21,7 +21,8 @@ public class BoundingBoxTests
 
     public static IEnumerable<object[]> SampleImages()
     {
-        var imagesDir = Path.Combine(Root, "dataset", "images");
+        var dataset = Environment.GetEnvironmentVariable("DATASET_SUBDIR") ?? "dataset1";
+        var imagesDir = Path.Combine(Root, "dataset", dataset, "images");
         return Directory.GetFiles(imagesDir).OrderBy(f => f)
             .Select(f => new object[] { f });
     }
@@ -33,7 +34,8 @@ public class BoundingBoxTests
         EnsureModel();
         using var detector = new SignatureDetector(OnnxPath);
         var detections = detector.Predict(imagePath, 0.1f);
-        var labelPath = Path.Combine(Root, "dataset", "labels",
+        var dataset = Environment.GetEnvironmentVariable("DATASET_SUBDIR") ?? "dataset1";
+        var labelPath = Path.Combine(Root, "dataset", dataset, "labels",
             Path.GetFileNameWithoutExtension(imagePath) + ".txt");
         var labelLines = File.ReadAllLines(labelPath);
         if (labelLines.Length == 0) return; // no label for this image

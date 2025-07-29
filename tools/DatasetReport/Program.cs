@@ -29,8 +29,9 @@ float IoU(float x1, float y1, float x2, float y2, float x1b, float y1b, float x2
 }
 
 EnsureModel();
-var imagesDir = Path.Combine(Root, "dataset", "images");
-var labelsDir = Path.Combine(Root, "dataset", "labels");
+string dataset = args.Length > 0 ? args[0] : "dataset1";
+var imagesDir = Path.Combine(Root, "dataset", dataset, "images");
+var labelsDir = Path.Combine(Root, "dataset", dataset, "labels");
 var images = Directory.GetFiles(imagesDir).OrderBy(f => f).ToArray();
 var rows = new List<string>();
 using var detector = new SignatureDetector(OnnxPath);
@@ -47,7 +48,7 @@ foreach (var img in images)
     double diff = 100.0;
     if (!string.IsNullOrWhiteSpace(labelText))
     {
-        var parts = labelText.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+    var parts = labelText.Split((char[])null, StringSplitOptions.RemoveEmptyEntries);
         numLabels = parts.Length / 5;
         float cx = float.Parse(parts[1]);
         float cy = float.Parse(parts[2]);
@@ -67,5 +68,6 @@ foreach (var img in images)
     }
     rows.Add($"{Path.GetFileName(img)},{numLabels},{preds.Length},{diff:F2},{sw.Elapsed.TotalMilliseconds:F0}");
 }
-File.WriteAllLines(Path.Combine(Root, "dataset_report.csv"), rows);
+string outFile = dataset == "dataset1" ? "dataset_report.csv" : $"dataset_report_{dataset}.csv";
+File.WriteAllLines(Path.Combine(Root, outFile), rows);
 Console.WriteLine($"Average inference ms: {totalMs / images.Length:F1}");
