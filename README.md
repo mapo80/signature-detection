@@ -62,12 +62,14 @@ The `tools/DatasetReport` utility was run on 20 images from each dataset. The ta
 
 - *Dataset1*: 20 labels, 35 detections, average inference time **324 ms**.
 - *Dataset2*: 18 labels, 22 detections, average inference time **322 ms**.
+- *Dataset1 with robust filter*: 20 labels, 0 detections, average inference time **364 ms**.
+- *Dataset2 with robust filter*: 18 labels, 7 detections, average inference time **411 ms**.
 
 ### Impact of post-processing
-| Dataset | Labels | Detections before | Detections after | Avg time before ms | Avg time after ms |
-|---------|-------:|------------------:|----------------:|------------------:|-----------------:|
-| dataset1 | 20 | 35 | 35 | 350 | 324 |
-| dataset2 | 18 | 22 | 22 | 364 | 322 |
+| Dataset | Labels | Before det | NMS det | Robust det | Avg before | Avg NMS | Avg robust |
+|---------|-------:|-----------:|-------:|-----------:|-----------:|--------:|-----------:|
+| dataset1 | 20 | 35 | 35 | 0 | 350 | 324 | 364 |
+| dataset2 | 18 | 22 | 22 | 7 | 364 | 322 | 411 |
 ### Dataset1 - DETR
 
 | Image | Labels | Detections | Diff% | Time ms |

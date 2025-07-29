@@ -1,6 +1,7 @@
 using System;
 using Microsoft.ML.OnnxRuntime.Tensors;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace SignatureDetectionSdk;
 
@@ -97,6 +98,46 @@ public static class PostProcessing
         return keep;
     }
 
+    public static List<float[]> FilterByGeometry(IReadOnlyList<float[]> boxes,
+        float areaMin, float areaMax, float arMin, float arMax)
+    {
+        var keep = new List<float[]>();
+        foreach (var b in boxes)
+        {
+            float w = b[2] - b[0];
+            float h = b[3] - b[1];
+            float area = w * h;
+            if (area < areaMin || area > areaMax) continue;
+            float ar = w / h;
+            if (ar < arMin || ar > arMax) continue;
+            keep.Add(b);
+        }
+        return keep;
+    }
+
+    public static List<float[]> SoftNmsDistance(List<float[]> boxes,
+        float sigma, float distanceScale, float scoreThreshold)
+    {
+        var work = boxes.OrderByDescending(b => b[4]).Select(b => (float[])b.Clone()).ToList();
+        var keep = new List<float[]>();
+        while (work.Count > 0)
+        {
+            work.Sort((a,b) => b[4].CompareTo(a[4]));
+            var current = work[0];
+            work.RemoveAt(0);
+            keep.Add(current);
+            for (int i = 0; i < work.Count; i++)
+            {
+                float iou = IoU(current, work[i]);
+                float dist = CentroidDistance(current, work[i]);
+                float decay = MathF.Exp(- (iou * iou) / sigma - (dist * dist) / (distanceScale * distanceScale));
+                work[i][4] *= decay;
+            }
+            work.RemoveAll(b => b[4] < scoreThreshold);
+        }
+        return keep;
+    }
+
     private static float IoU(float[] a, float[] b)
     {
         float xx1 = MathF.Max(a[0], b[0]);
@@ -108,6 +149,17 @@ public static class PostProcessing
         float areaB = MathF.Max(0, b[2] - b[0]) * MathF.Max(0, b[3] - b[1]);
         float union = areaA + areaB - inter;
         return union <= 0 ? 0 : inter / union;
+    }
+
+    private static float CentroidDistance(float[] a, float[] b)
+    {
+        float cx1 = (a[0] + a[2]) / 2f;
+        float cy1 = (a[1] + a[3]) / 2f;
+        float cx2 = (b[0] + b[2]) / 2f;
+        float cy2 = (b[1] + b[3]) / 2f;
+        float dx = cx1 - cx2;
+        float dy = cy1 - cy2;
+        return MathF.Sqrt(dx * dx + dy * dy);
     }
 
     private static float Sigmoid(float v) => 1f / (1f + MathF.Exp(-v));
