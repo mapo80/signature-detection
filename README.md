@@ -60,22 +60,25 @@ The `tools/DatasetReport` utility was run on a subset of **20 images** from each
 
 **Summary statistics**
 
-- *Dataset1 (DETR)*: 7 detections, average inference time **306 ms**.
-- *Dataset1 (YOLOv8)*: 56 detections, average inference time **151 ms**.
-- *Dataset1 ensemble*: 10 detections, average inference time **387 ms**.
-- *Dataset2 (DETR)*: 18 detections, average inference time **298 ms**.
-- *Dataset2 (YOLOv8)*: 91 detections, average inference time **208 ms**.
-- *Dataset2 ensemble*: 21 detections, average inference time **310 ms**.
+- *Dataset1 (DETR)*: 7 detections, average inference time **307 ms**.
+- *Dataset1 (YOLOv8)*: 56 detections, average inference time **230 ms**.
+- *Dataset1 ensemble*: 10 detections, average inference time **416 ms**.
+- *Dataset2 (DETR)*: 18 detections, average inference time **308 ms**.
+- *Dataset2 (YOLOv8)*: 91 detections, average inference time **234 ms**.
+- *Dataset2 ensemble*: 21 detections, average inference time **354 ms**.
 
 ### Impact of post-processing
 | Dataset | Baseline det | Robust det | Avg Baseline | Avg Robust |
 |---------|-------------:|-----------:|------------:|-----------:|
-| dataset1 | 35 | 7 | 350 | 342 |
-| dataset2 | 22 | 18 | 364 | 331 |
+| dataset1 | 35 | 7 | 350 | 307 |
+| dataset2 | 22 | 18 | 364 | 308 |
 
-The additional NMS step collapses nearby boxes, reducing spurious duplicates
-while keeping the overall recall stable. Average inference times include the
-extra filtering pass.
+The updated post‑processing first converts the DETR logits to class
+probabilities, discarding low‑confidence queries. The remaining boxes are
+mapped to pixel coordinates and filtered by geometry. A distance‑aware
+Soft‑NMS step suppresses overlapping boxes and a final NMS collapses the
+closest ones. This greatly reduces duplicates while keeping recall stable.
+Average inference times include the extra filtering pass.
 
 ## Configurazione del filtro
 
