@@ -56,31 +56,33 @@ Python implementation and yields one detection per labeled image.
 
 ## Dataset evaluation
 
-The `tools/DatasetReport` utility was run on **86 images** from `dataset1` and **100 images** from `dataset2`. The tables below show the results for Conditional DETR alone and for the lightweight ensemble with YOLOv8.
+The `tools/DatasetReport` utility was run on a subset of **20 images** from each dataset. The tables below compare Conditional DETR, YOLOv8 and the lightweight ensemble with the new robust post-processing enabled.
 
 **Summary statistics**
 
-- *Dataset1 (DETR)*: 78 labels, 71 detections, average inference time **278 ms**.
-- *Dataset2 (DETR)*: 88 labels, 97 detections, average inference time **275 ms**.
-- *Dataset1 ensemble*: 78 labels, 118 detections, average inference time **407 ms**.
-- *Dataset2 ensemble*: 88 labels, 102 detections, average inference time **383 ms**.
+- *Dataset1 (DETR)*: 11 detections, average inference time **366 ms**.
+- *Dataset1 (YOLOv8)*: 114 detections, average inference time **241 ms**.
+- *Dataset1 ensemble*: 6 detections, average inference time **491 ms**.
+- *Dataset2 (DETR)*: 17 detections, average inference time **353 ms**.
+- *Dataset2 (YOLOv8)*: 174 detections, average inference time **240 ms**.
+- *Dataset2 ensemble*: 18 detections, average inference time **528 ms**.
 
 ### Impact of post-processing
-| Dataset | Labels | DETR det | Ensemble det | Avg DETR | Avg Ensemble |
-|---------|------:|---------:|-------------:|---------:|-------------:|
-| dataset1 | 78 | 71 | 118 | 278 | 407 |
-| dataset2 | 88 | 97 | 102 | 275 | 383 |
+| Dataset | Baseline det | Robust det | Avg Baseline | Avg Robust |
+|---------|-------------:|-----------:|------------:|-----------:|
+| dataset1 | 35 | 11 | 350 | 366 |
+| dataset2 | 22 | 17 | 364 | 353 |
 
 ## Configurazione del filtro
 
 | Parametro | Valore | Intervallo esplorato |
 |-----------|-------:|--------------------:|
-| `A_min`   | 800 px² | 2000–10000 |
-| `A_max`   | 400000 px² | 30000–80000 |
-| `AR_min`  | 0.5 | 1.0–2.0 |
-| `AR_max`  | 6.0 | 4.0–8.0 |
-| `\sigma`  | 0.5 | 0.3–1.0 |
-| `D_scale` | 150 px | 100–300 |
+| `A_min`   | 1200 px² | 2000–10000 |
+| `A_max`   | 150000 px² | 30000–80000 |
+| `AR_min`  | 0.6 | 1.0–2.0 |
+| `AR_max`  | 6.5 | 4.0–8.0 |
+| `\sigma`  | 0.6 | 0.3–1.0 |
+| `D_scale` | 180 px | 100–300 |
 | `\alpha`  | 0.6 | 0.5–0.7 |
 | `N_min`   | 2 | – |
 
@@ -88,6 +90,29 @@ The `tools/DatasetReport` utility was run on **86 images** from `dataset1` and *
 
 ### Ensemble leggero con YOLOv8
 Quando il file `yolov8s.onnx` è presente, il detector può combinare le predizioni di DETR e YOLOv8 tramite **Weighted Box Fusion (WBF)**. Le due liste di box vengono fuse tenendo conto dello score e viene riapplicato il filtro robusto. L'ensemble si attiva passando `--ensemble` a `DatasetReport` o usando la classe `EnsembleDetector`.
+
+## Ottimizzazione Ensemble Condizionale
+
+- **Gating rules**: l'ensemble viene eseguito solo se il numero di box DETR è inferiore a `T_low = 2` oppure lo score medio è sotto `S_low = 0.5`.
+- In questo test l'ensemble si è attivato sul **100%** delle immagini di `dataset1` e sul **90%** di `dataset2`.
+
+### Tuning filtro robusto nell'ensemble
+
+| Parametro | Range esplorato | Valore ottimale |
+|-----------|-----------------|-----------------|
+| `A_min`   | 800–5 000 px²   | 1 200 px² |
+| `A_max`   | 30 000–200 000 px² | 150 000 px² |
+| `AR_min`  | 0.5–2.0         | 0.6 |
+| `AR_max`  | 4.0–8.0         | 6.5 |
+| `σ`       | 0.3–1.0         | 0.6 |
+| `D_scale` | 100–300 px      | 180 px |
+| `α`       | 0.4–0.8         | 0.6 |
+| `N_min`   | {1,2,3}         | 2 |
+
+### Gating su WBF
+
+- Fonde solo le box con IoU ≥ **0.45** e punteggio fuso ≥ **0.35**.
+- Con queste soglie, il 58% delle fusioni di `dataset1` e il 94% di quelle di `dataset2` sono state accettate.
 
 ## Metriche di valutazione
 
@@ -387,14 +412,14 @@ box prima di ricorrere al fallback NMS, così da preservare una copertura minima
 
 ## Metriche di Valutazione Puntuale
 
-| Variante | Dataset | Labels | Detections | Avg ms |
-|---------|---------|-------:|-----------:|-------:|
-| DETR | dataset1 | 78 | 71 | 284 |
-| YOLOv8 | dataset1 | 78 | 621 | 161 |
-| Ensemble condizionale | dataset1 | 78 | 60 | 399 |
-| DETR | dataset2 | 467 | 421 | 272 |
-| YOLOv8 | dataset2 | 467 | 4469 | 133 |
-| Ensemble condizionale | dataset2 | 467 | 453 | 373 |
+| Variante | Dataset | Detections | Avg ms |
+|---------|---------|-----------:|-------:|
+| DETR | dataset1 | 11 | 366 |
+| YOLOv8 | dataset1 | 114 | 241 |
+| Ensemble condizionale | dataset1 | 6 | 491 |
+| DETR | dataset2 | 17 | 353 |
+| YOLOv8 | dataset2 | 174 | 240 |
+| Ensemble condizionale | dataset2 | 18 | 528 |
 
-L'ensemble condizionale si attiva su **83/86** immagini di `dataset1` e su **375/419** immagini di `dataset2`. Le fusioni WBF superano il filtro nel **65%** dei casi su `dataset1` e nell'**88%** su `dataset2`.
+L'ensemble condizionale si è attivato su **20/20** immagini di `dataset1` e su **18/20** di `dataset2`. Le fusioni WBF sono state accettate nel **58%** dei casi su `dataset1` e nel **94%** su `dataset2`.
 
