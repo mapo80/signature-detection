@@ -33,10 +33,12 @@ float IoU(float x1, float y1, float x2, float y2, float x1b, float y1b, float x2
 string dataset = "dataset1";
 bool useYolo = false;
 bool optimizeSession = false;
+bool ensemble = false;
 int max = int.MaxValue;
 foreach (var a in args)
 {
     if (a == "--yolo") useYolo = true;
+    else if (a == "--ensemble") { useYolo = true; ensemble = true; }
     else if (a == "--ort-opt") optimizeSession = true;
     else if (a.StartsWith("--max=")) max = int.Parse(a.Substring(6));
     else dataset = a;
@@ -54,13 +56,27 @@ if (optimizeSession)
     opts = new SessionOptions();
     opts.GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL;
 }
-using var detectorObj = useYolo ? (IDisposable)new YoloV8Detector(yoloPath) : new SignatureDetector(OnnxPath, 640, opts);
+IDisposable detectorObj;
+if (ensemble)
+    detectorObj = new EnsembleDetector(OnnxPath, yoloPath);
+else if (useYolo)
+    detectorObj = new YoloV8Detector(yoloPath);
+else
+    detectorObj = new SignatureDetector(OnnxPath, 640, opts);
 dynamic detector = detectorObj;
 double totalMs = 0;
 foreach (var img in images)
 {
     var sw = Stopwatch.StartNew();
-    var preds = detector.Predict(img);
+    float[][] preds;
+    if (detectorObj is YoloV8Detector y)
+        preds = y.Predict(img, 0.25f, SignatureDetector.EnsembleParams);
+    else if (detectorObj is SignatureDetector d)
+        preds = d.Predict(img, 0.1f);
+    else if (detectorObj is EnsembleDetector ensDet)
+        preds = ensDet.Predict(img);
+    else
+        preds = detector.Predict(img);
     sw.Stop();
     totalMs += sw.Elapsed.TotalMilliseconds;
     var labelPath = Path.Combine(labelsDir, Path.GetFileNameWithoutExtension(img) + ".txt");
@@ -89,7 +105,14 @@ foreach (var img in images)
     }
     rows.Add($"{Path.GetFileName(img)},{numLabels},{preds.Length},{diff:F2},{sw.Elapsed.TotalMilliseconds:F0}");
 }
-string suffix = useYolo ? "_yolo" : "";
+string suffix = ensemble ? "_ensemble" : useYolo ? "_yolo" : "";
 string outFile = dataset == "dataset1" ? $"dataset_report{suffix}.csv" : $"dataset_report_{dataset}{suffix}.csv";
 File.WriteAllLines(Path.Combine(Root, outFile), rows);
 Console.WriteLine($"Average inference ms: {totalMs / images.Length:F1}");
+if (ensemble && detectorObj is EnsembleDetector ed)
+{
+    Console.WriteLine($"Ensemble triggered on {ed.UsedCount}/{ed.TotalCount} images ({ed.UsedCount * 100.0 / ed.TotalCount:F1}%)");
+    int totFuse = ed.FusionAccepted + ed.FusionRejected;
+    if (totFuse > 0)
+        Console.WriteLine($"Fusion accepted {ed.FusionAccepted}/{totFuse} ({ed.FusionAccepted * 100.0 / totFuse:F1}%)");
+}
