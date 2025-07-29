@@ -10,6 +10,9 @@ public class EnsembleDetector : IDisposable
     private readonly bool _enabled;
     private readonly int _tLow;
     private readonly float _vHigh;
+    private readonly int _topK;
+    private readonly float _wbfIou;
+    private readonly float _wbfScore;
     private int _used;
     private int _total;
     private int _fusedAccepted;
@@ -20,15 +23,21 @@ public class EnsembleDetector : IDisposable
     public int FusionAccepted => _fusedAccepted;
     public int FusionRejected => _fusedRejected;
     public bool LastUsedEnsemble { get; private set; }
+    public int LastRobustCount { get; private set; }
+    public float LastScoreVariance { get; private set; }
 
     public EnsembleDetector(string detrPath, string yoloPath, bool enabled = true,
-        int tLow = 1, float vHigh = 0.1f)
+        int tLow = 1, float vHigh = 0.1f, int topK = 3,
+        float wbfIou = 0.55f, float wbfScore = 0.45f)
     {
         _enabled = enabled && File.Exists(yoloPath);
         _detr = new SignatureDetector(detrPath);
         _yolo = _enabled ? new YoloV8Detector(yoloPath) : null!;
         _tLow = tLow;
         _vHigh = vHigh;
+        _topK = topK;
+        _wbfIou = wbfIou;
+        _wbfScore = wbfScore;
     }
 
     public void Dispose()
@@ -42,6 +51,7 @@ public class EnsembleDetector : IDisposable
     {
         _total++;
         var detrBoxes = _detr.Predict(imagePath, scoreThreshold);
+        LastRobustCount = detrBoxes.Length;
 
         if (!_enabled)
         {
@@ -50,20 +60,22 @@ public class EnsembleDetector : IDisposable
         }
 
         float std = 0f;
-        if (detrBoxes.Length > 1)
+        if (detrBoxes.Length > 0)
         {
-            float mean = detrBoxes.Average(b => b[4]);
-            std = MathF.Sqrt(detrBoxes.Sum(b => (b[4] - mean) * (b[4] - mean)) / detrBoxes.Length);
+            var top = detrBoxes.OrderByDescending(b => b[4]).Take(_topK).ToArray();
+            float mean = top.Average(b => b[4]);
+            std = top.Length > 1 ? top.Sum(b => (b[4] - mean) * (b[4] - mean)) / top.Length : 0f;
         }
+        LastScoreVariance = std;
         bool use = detrBoxes.Length < _tLow && std < _vHigh;
         LastUsedEnsemble = use;
         if (!use)
             return detrBoxes;
 
         _used++;
-        var yoloBoxes = _yolo.Predict(imagePath, 0.25f);
+        var yoloBoxes = _yolo.Predict(imagePath, 0.25f, SignatureDetector.EnsembleParams);
         int acc, rej;
-        var fused = PostProcessing.WeightedBoxFusion(detrBoxes, yoloBoxes, 0.45f, 0.35f, out acc, out rej);
+        var fused = PostProcessing.WeightedBoxFusion(detrBoxes, yoloBoxes, _wbfIou, _wbfScore, out acc, out rej);
         _fusedAccepted += acc;
         _fusedRejected += rej;
 
@@ -95,7 +107,7 @@ public class EnsembleDetector : IDisposable
             }
             else if (_enabled)
             {
-                var yoloOnly = _yolo.Predict(imagePath, 0.3f);
+                var yoloOnly = _yolo.Predict(imagePath, 0.3f, SignatureDetector.EnsembleParams);
                 finalList = PostProcessing.Nms(yoloOnly, 0.5f);
             }
         }

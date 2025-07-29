@@ -60,18 +60,18 @@ The `tools/DatasetReport` utility was run on a subset of **20 images** from each
 
 **Summary statistics**
 
-- *Dataset1 (DETR)*: 11 detections, average inference time **366 ms**.
-- *Dataset1 (YOLOv8)*: 114 detections, average inference time **241 ms**.
-- *Dataset1 ensemble*: 6 detections, average inference time **491 ms**.
-- *Dataset2 (DETR)*: 17 detections, average inference time **353 ms**.
-- *Dataset2 (YOLOv8)*: 174 detections, average inference time **240 ms**.
-- *Dataset2 ensemble*: 18 detections, average inference time **528 ms**.
+- *Dataset1 (DETR)*: 7 detections, average inference time **306 ms**.
+- *Dataset1 (YOLOv8)*: 56 detections, average inference time **151 ms**.
+- *Dataset1 ensemble*: 10 detections, average inference time **387 ms**.
+- *Dataset2 (DETR)*: 18 detections, average inference time **298 ms**.
+- *Dataset2 (YOLOv8)*: 91 detections, average inference time **208 ms**.
+- *Dataset2 ensemble*: 21 detections, average inference time **310 ms**.
 
 ### Impact of post-processing
 | Dataset | Baseline det | Robust det | Avg Baseline | Avg Robust |
 |---------|-------------:|-----------:|------------:|-----------:|
-| dataset1 | 35 | 11 | 350 | 366 |
-| dataset2 | 22 | 17 | 364 | 353 |
+| dataset1 | 35 | 7 | 350 | 306 |
+| dataset2 | 22 | 18 | 364 | 298 |
 
 ## Configurazione del filtro
 
@@ -87,9 +87,9 @@ Quando il file `yolov8s.onnx` è presente, il detector può combinare le predizi
 
 ## Ottimizzazione Ensemble Condizionale
 
-- **Gating rules**: l'ensemble viene eseguito solo se `count_DETR < T_low` **e** la deviazione standard degli score è inferiore a `V_high`.
-- Con `T_low = 1` e `V_high = 0.1` l'ensemble si è attivato sul **100%** delle immagini di `dataset1` e sul **90%** di `dataset2`.
- - Se dopo il filtro robusto non rimane alcuna box, il detector torna ai risultati DETR (o YOLOv8) filtrati solo via NMS.
+- **Gating rules**: l'ensemble si attiva solo se il numero di box dopo il filtro robusto (`count_DETR`) è inferiore a `T_low` e la varianza degli score delle migliori `k` box è sotto `V_high`.
+- Con `T_low = 5`, `k = 3` e `V_high = 0.1` l'ensemble è stato utilizzato nel **70%** delle immagini di `dataset1` e nel **20%** di `dataset2`.
+- Se dopo il filtro robusto non rimane alcuna box, il detector torna ai risultati DETR (o YOLOv8) filtrati solo via NMS.
 
 ### Tuning filtro robusto nell'ensemble
 
@@ -106,8 +106,8 @@ Quando il file `yolov8s.onnx` è presente, il detector può combinare le predizi
 
 ### Gating su WBF
 
-- Fonde solo le box con IoU ≥ **0.45** e punteggio fuso ≥ **0.35**.
-- Con queste soglie, il 58% delle fusioni di `dataset1` e il 94% di quelle di `dataset2` sono state accettate.
+- Fonde solo le box con IoU ≥ **0.55** e punteggio fuso ≥ **0.45**.
+- Con queste soglie, il 75% delle fusioni di `dataset1` e il 100% di quelle di `dataset2` sono state accettate.
 
 ## Metriche di valutazione
 

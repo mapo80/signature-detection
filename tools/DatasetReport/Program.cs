@@ -68,7 +68,15 @@ double totalMs = 0;
 foreach (var img in images)
 {
     var sw = Stopwatch.StartNew();
-    var preds = detector.Predict(img);
+    float[][] preds;
+    if (detectorObj is YoloV8Detector y)
+        preds = y.Predict(img, 0.25f, SignatureDetector.EnsembleParams);
+    else if (detectorObj is SignatureDetector d)
+        preds = d.Predict(img, 0.1f);
+    else if (detectorObj is EnsembleDetector ensDet)
+        preds = ensDet.Predict(img);
+    else
+        preds = detector.Predict(img);
     sw.Stop();
     totalMs += sw.Elapsed.TotalMilliseconds;
     var labelPath = Path.Combine(labelsDir, Path.GetFileNameWithoutExtension(img) + ".txt");
