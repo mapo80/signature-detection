@@ -62,14 +62,42 @@ The `tools/DatasetReport` utility was run on 20 images from each dataset. The ta
 
 - *Dataset1*: 20 labels, 35 detections, average inference time **324 ms**.
 - *Dataset2*: 18 labels, 22 detections, average inference time **322 ms**.
-- *Dataset1 with robust filter*: 20 labels, 7 detections, average inference time **314 ms**.
-- *Dataset2 with robust filter*: 18 labels, 15 detections, average inference time **300 ms**.
+- *Dataset1 with robust filter*: 20 labels, 11 detections, average inference time **331 ms**.
+- *Dataset2 with robust filter*: 18 labels, 17 detections, average inference time **321 ms**.
 
 ### Impact of post-processing
 | Dataset | Labels | Before det | NMS det | Robust det | Avg before | Avg NMS | Avg robust |
 |---------|-------:|-----------:|-------:|-----------:|-----------:|--------:|-----------:|
-| dataset1 | 20 | 35 | 35 | 7 | 350 | 324 | 314 |
-| dataset2 | 18 | 22 | 22 | 15 | 364 | 322 | 300 |
+| dataset1 | 20 | 35 | 35 | 11 | 350 | 324 | 331 |
+| dataset2 | 18 | 22 | 22 | 17 | 364 | 322 | 321 |
+
+## Configurazione del filtro
+
+| Parametro | Valore | Intervallo esplorato |
+|-----------|-------:|--------------------:|
+| `A_min`   | 800 px² | 2000–10000 |
+| `A_max`   | 400000 px² | 30000–80000 |
+| `AR_min`  | 0.5 | 1.0–2.0 |
+| `AR_max`  | 6.0 | 4.0–8.0 |
+| `\sigma`  | 0.5 | 0.3–1.0 |
+| `D_scale` | 150 px | 100–300 |
+| `\alpha`  | 0.6 | 0.5–0.7 |
+| `N_min`   | 2 | – |
+
+`\alpha` moltiplica la mediana degli score dopo il filtro robusto per ottenere la soglia dinamica dell'immagine. Se il numero di box rimanenti è inferiore a `N_min` viene applicato il semplice NMS.
+
+## Metriche di valutazione
+
+Per ogni dataset vengono calcolati i seguenti indicatori:
+
+- *True Positives* (TP), *False Positives* (FP) e *False Negatives* (FN)
+- *Precision*, *Recall* e *F1-score*
+- IoU medio e mediano sulle TP
+- Distanza media e mediana tra i centroidi delle TP
+- Distribuzione degli score (media, mediana, deviazione standard)
+- Tempi medi suddivisi in inferenza ONNX, post-processing e rendering
+
+Le prime prove mostrano che con la soglia dinamica il numero di box su `dataset1` sale a **11** (recall ~0.55) mentre su `dataset2` arriva a **17** (recall ~0.94 assumendo una firma per immagine).
 ### Dataset1 - DETR
 
 | Image | Labels | Detections | Diff% | Time ms |
@@ -179,6 +207,16 @@ These extra boxes are often far apart so their pairwise IoU is well below the
 0.5 threshold used by NMS. As a result the algorithm keeps them all even though
 only one signature is expected. Further heuristics such as filtering by centroid
 distance might help suppress these false positives.
+
+## Analisi errori
+
+Gli errori più frequenti provengono dalle immagini in cui la firma è molto piccola
+o confusa con altre scritte. In questi casi il filtro geometrico elimina la box
+per dimensioni o aspect ratio anomale. Il decadimento della soglia dinamica
+rende però più robusta la rilevazione: se restano meno di due box si ritorna al
+NMS classico per evitare falsi negativi. I casi di falsi positivi su `dataset2`
+sono invece legati a firme ravvicinate che non superano la soglia di distanza
+imposta dal termine `D_scale`.
 
 ## Python vs .NET comparison
 
@@ -331,4 +369,15 @@ La dimensione del file rimane **167 MB**. L'esecuzione su 20 immagini per ciascu
 | dataset2 | 332 | 346 | 351 | 0 |
 
 Il numero di box previsti non cambia rispetto al modello originale. I pass di ONNX Runtime riducono leggermente la latenza su `dataset1` (-28 ms) ma peggiorano `dataset2` (+14 ms). L'ulteriore ottimizzazione con `onnxoptimizer` non porta benefici apprezzabili.
+
+## Conclusioni e raccomandazioni
+
+Il post-processing basato su soglia dinamica e Soft‑NMS con penalità sulla distanza
+riduce il numero di falsi positivi senza azzerare del tutto le detection come
+accadeva con parametri statici troppo severi. Per `dataset1` il richiamo resta
+limitato ma il sistema evita molti quadrati errati. Con immagini più complesse
+(`dataset2`) la combinazione di filtro geometrico e soglia adattiva garantisce
+un buon equilibrio tra precisione e recall. Si consiglia di mantenere `\alpha`
+fra 0.6 e 0.7 e di non scendere sotto le 2 box prima di ricorrere al fallback
+NMS, così da preservare una copertura minima.
 

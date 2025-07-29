@@ -53,9 +53,17 @@ public class SignatureDetector : IDisposable
         var scores = PostProcessing.FilterByScore(logits, scoreThreshold);
         var dets = PostProcessing.ToPixelBoxes(boxes, resized.Width, resized.Height, scores);
         dets = PostProcessing.FilterByGeometry(dets, 800f, 400000f, 0.5f, 6f);
-        var final = PostProcessing.SoftNmsDistance(dets, 0.5f, 150f, 0.3f);
-        if (final.Count == 0 && dets.Count > 0)
-            final = PostProcessing.Nms(dets, 0.5f);
+        var robust = PostProcessing.SoftNmsDistance(dets, 0.5f, 150f);
+        float dynamicThresh = 0.3f;
+        if (robust.Count > 0)
+        {
+            var ordered = robust.Select(b => b[4]).OrderBy(v => v).ToList();
+            float median = ordered[ordered.Count / 2];
+            dynamicThresh = 0.6f * median;
+        }
+        var filtered = robust.Where(b => b[4] >= dynamicThresh).ToList();
+        var nms = PostProcessing.Nms(dets, 0.5f);
+        List<float[]> final = filtered.Count < 2 ? nms : filtered;
         return final.ToArray();
     }
 

@@ -116,7 +116,7 @@ public static class PostProcessing
     }
 
     public static List<float[]> SoftNmsDistance(List<float[]> boxes,
-        float sigma, float distanceScale, float scoreThreshold)
+        float sigma, float distanceScale)
     {
         var work = boxes.OrderByDescending(b => b[4]).Select(b => (float[])b.Clone()).ToList();
         var keep = new List<float[]>();
@@ -133,7 +133,6 @@ public static class PostProcessing
                 float decay = MathF.Exp(- (iou * iou) / sigma - (dist * dist) / (distanceScale * distanceScale));
                 work[i][4] *= decay;
             }
-            work.RemoveAll(b => b[4] < scoreThreshold);
         }
         return keep;
     }
