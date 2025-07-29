@@ -49,29 +49,30 @@ The unit tests automatically recombine the ONNX model and verify a
 few sample images from `dataset/`. Each detection is compared against
 its YOLOv8 label file and must reach a reasonable IoU.
 
+The `SignatureDetector` exposes a `scoreThreshold` parameter. The
+model outputs a single logit per query which is passed through a
+sigmoid. A default threshold of **0.1** closely matches the original
+Python implementation and yields one detection per labeled image.
+
 ## Dataset evaluation
 
 The `tools/DatasetReport` utility processes every image in `dataset/` using the
 SDK and compares the predicted bounding box with the corresponding label. The
 table below lists for each image the number of labels, number of detected
 signatures, the percentage difference (100% - IoU), and the inference time in
-milliseconds. The average inference time across the dataset was **~248 ms**.
+milliseconds. With the updated threshold the average inference time is
+**~626 ms**.
 
 <!-- GENERATED REPORT -->
 
 | Image | Labels | Detections | Diff% | Time ms |
 |---|---|---|---|---|
-| 001_15_PNG_jpg.rf.7ae3c04130de9c0e178fa2c1feb8eca9.jpg | 1 | 78 | 71.32 | 362 |
-| 00101001_png_jpg.rf.27db3f0cbf1a1ef078dcca2fdc2874af.jpg | 1 | 76 | 40.03 | 293 |
-| 00101027_png_jpg.rf.a92770147b74d58b15829954bbba6ac6.jpg | 1 | 70 | 42.73 | 367 |
-| 00101029_png_jpg.rf.14639faea024ffc684cd71be406650dc.jpg | 1 | 73 | 45.25 | 219 |
-| 00104001_png_jpg.rf.bfafcce0144b089dc34bc63f05c4ea12.jpg | 1 | 78 | 59.52 | 228 |
-| 00104027_png_jpg.rf.a0812b28f188bed93538a071edc42b73.jpg | 1 | 85 | 46.41 | 240 |
-| 002_02_PNG_jpg.rf.036f32c4fafd37313d3efbf30e330a90.jpg | 1 | 67 | 40.02 | 217 |
-| 002_11_PNG_jpg.rf.74c78f2735867cd2f42cf4550d9d7993.jpg | 1 | 77 | 16.53 | 231 |
-| 002_15_PNG_jpg.rf.505a2e55fcdd82ca86042fe97b59d1b7.jpg | 1 | 74 | 57.58 | 254 |
-| 00205002_png_jpg.rf.c64a564d90ed620839808566c8ae60bc.jpg | 1 | 71 | 60.51 | 230 |
-| 00205002_png_jpg.rf.edc16c394577e472cd95c93f73a616e4.jpg | 1 | 72 | 62.07 | 366 |
+| 001_15_PNG_jpg.rf.7ae3c04130de9c0e178fa2c1feb8eca9.jpg | 1 | 0 | 100.00 | 1095 |
+| 00101001_png_jpg.rf.27db3f0cbf1a1ef078dcca2fdc2874af.jpg | 1 | 1 | 98.71 | 697 |
+| 00101027_png_jpg.rf.a92770147b74d58b15829954bbba6ac6.jpg | 1 | 5 | 94.14 | 654 |
+| 00101029_png_jpg.rf.14639faea024ffc684cd71be406650dc.jpg | 1 | 1 | 91.44 | 586 |
+| 00104001_png_jpg.rf.bfafcce0144b089dc34bc63f05c4ea12.jpg | 1 | 1 | 98.44 | 618 |
+| ... | ... | ... | ... | ... |
 | 02205002_png_jpg.rf.c491e313d0f62c95e2990f664fe44c8b.jpg | 1 | 84 | 41.44 | 288 |
 | 02302023_png_jpg.rf.7b59991fc80b082bb1925a5071c22464.jpg | 1 | 65 | 49.00 | 244 |
 | 02302070_png_jpg.rf.5db163a7de9ae621c56c1a86c3de2d84.jpg | 1 | 67 | 71.82 | 259 |
