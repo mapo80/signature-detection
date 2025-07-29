@@ -47,29 +47,13 @@ public class SignatureDetector : IDisposable
             NamedOnnxValue.CreateFromTensor("pixel_values", tensor)
         };
         using IDisposableReadOnlyCollection<DisposableNamedOnnxValue> results = _session.Run(inputs);
-        var logits = results.First(r => r.Name == "logits").AsEnumerable<float>().ToArray();
-        var boxes = results.First(r => r.Name == "boxes").AsEnumerable<float>().ToArray();
-        int numPreds = logits.Length; // single class with sigmoid activation
-        var detections = new List<float[]>();
-        for (int i = 0; i < numPreds; i++)
-        {
-            float score = Sigmoid(logits[i]);
-            if (score <= scoreThreshold) continue;
-            float cx = boxes[i*4];
-            float cy = boxes[i*4 + 1];
-            float w = boxes[i*4 + 2];
-            float h = boxes[i*4 + 3];
-            float x1 = (cx - w/2) * resized.Width;
-            float y1 = (cy - h/2) * resized.Height;
-            float x2 = (cx + w/2) * resized.Width;
-            float y2 = (cy + h/2) * resized.Height;
-            detections.Add(new[]{x1,y1,x2,y2,score});
-        }
-        return detections.ToArray();
+        var logits = results.First(r => r.Name == "logits").AsTensor<float>();
+        var boxes = results.First(r => r.Name == "boxes").AsTensor<float>();
+
+        var scores = PostProcessing.FilterByScore(logits, scoreThreshold);
+        var dets = PostProcessing.ToPixelBoxes(boxes, resized.Width, resized.Height, scores);
+        var final = PostProcessing.Nms(dets, 0.5f);
+        return final.ToArray();
     }
 
-    private static float Sigmoid(float value)
-    {
-        return 1f / (1f + MathF.Exp(-value));
-    }
 }
