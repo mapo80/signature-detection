@@ -63,15 +63,15 @@ The `tools/DatasetReport` utility was run on a subset of **20 images** from each
 - *Dataset1 (DETR)*: 7 detections, average inference time **307 ms**.
 - *Dataset1 (YOLOv8)*: 56 detections, average inference time **230 ms**.
 - *Dataset1 ensemble*: 10 detections, average inference time **416 ms**.
-- *Dataset2 (DETR)*: 90 detections, average inference time **258 ms**.
-- *Dataset2 (YOLOv8)*: 436 detections, average inference time **141 ms**.
-- *Dataset2 ensemble*: 93 detections, average inference time **382 ms**.
+ - *Dataset2 (DETR)*: 86 detections, average inference time **315 ms**.
+ - *Dataset2 (YOLOv8)*: 250 detections, average inference time **183 ms**.
+ - *Dataset2 ensemble*: 88 detections, average inference time **489 ms**.
 
 ### Impact of post-processing
 | Dataset | Baseline det | Robust det | Avg Baseline | Avg Robust |
 |---------|-------------:|-----------:|------------:|-----------:|
 | dataset1 | 35 | 7 | 350 | 307 |
-| dataset2 | 22 | 86 | 364 | 313 |
+| dataset2 | 22 | 86 | 315 | 314 |
 
 The updated post‑processing first converts the DETR logits to class
 probabilities, discarding low‑confidence queries. The remaining boxes are
@@ -94,8 +94,8 @@ Quando il file `yolov8s.onnx` è presente, il detector può combinare le predizi
 
 ## Ottimizzazione Ensemble Condizionale
 
- - **Gating rules**: l'ensemble si attiva solo se il numero di box dopo il filtro robusto (`count_DETR`) è inferiore a `T_low` (3 su `dataset2`) e opzionalmente se la varianza degli score è sotto `V_high`.
- - Con `T_low = 5` per `dataset1` e `T_low = 3` per `dataset2` l'ensemble viene eseguito rispettivamente sul **70%** e sul **95%** delle immagini; per `dataset2` la soglia di varianza è disattivata impostandola a 1.0.
+ - **Gating rules**: l'ensemble si attiva solo se il numero di box dopo il filtro robusto (`count_DETR`) è inferiore a `T_low` (18 su `dataset2`) e opzionalmente se la varianza degli score è sotto `V_high`.
+ - Con `T_low = 5` per `dataset1` e `T_low = 18` per `dataset2` l'ensemble viene eseguito sul **100%** di entrambe le raccolte; per `dataset2` la soglia di varianza resta disattivata impostandola a 1.0.
 - Se dopo il filtro robusto non rimane alcuna box, il detector torna ai risultati DETR (o YOLOv8) filtrati solo via NMS.
 
 ### Tuning filtro robusto nell'ensemble
