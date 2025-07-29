@@ -9,6 +9,15 @@ public class SignatureDetector : IDisposable
     private readonly InferenceSession _session;
     private readonly float[] _mean = {0.485f, 0.456f, 0.406f};
     private readonly float[] _std = {0.229f, 0.224f, 0.225f};
+    public readonly record struct RobustParams(
+        float AreaMin, float AreaMax,
+        float ArMin, float ArMax,
+        float Sigma, float DistScale,
+        float Alpha, int NMin);
+
+    public static readonly RobustParams DetrParams = new(1200f, 150000f, 0.6f, 6.5f, 0.6f, 180f, 0.6f, 2);
+    public static readonly RobustParams EnsembleParams = new(800f, 200000f, 0.5f, 8f, 0.4f, 120f, 0.5f, 1);
+
     public int InputSize { get; }
 
     public SignatureDetector(string modelPath, int inputSize = 640, SessionOptions? options = null)
@@ -22,7 +31,8 @@ public class SignatureDetector : IDisposable
         _session.Dispose();
     }
 
-    public float[][] Predict(string imagePath, float scoreThreshold = 0.1f)
+    public float[][] Predict(string imagePath, float scoreThreshold = 0.1f,
+        RobustParams? parameters = null)
     {
         using var image = SKBitmap.Decode(imagePath);
         using var resized = image.Resize(new SKImageInfo(InputSize, InputSize), SKFilterQuality.High);
@@ -47,29 +57,26 @@ public class SignatureDetector : IDisposable
             NamedOnnxValue.CreateFromTensor("pixel_values", tensor)
         };
         using IDisposableReadOnlyCollection<DisposableNamedOnnxValue> results = _session.Run(inputs);
-        var logits = results.First(r => r.Name == "logits").AsEnumerable<float>().ToArray();
-        var boxes = results.First(r => r.Name == "boxes").AsEnumerable<float>().ToArray();
-        int numPreds = logits.Length; // single class with sigmoid activation
-        var detections = new List<float[]>();
-        for (int i = 0; i < numPreds; i++)
+        var logits = results.First(r => r.Name == "logits").AsTensor<float>();
+        var boxes = results.First(r => r.Name == "boxes").AsTensor<float>();
+
+        var p = parameters ?? DetrParams;
+
+        var scores = PostProcessing.FilterByScore(logits, scoreThreshold);
+        var dets = PostProcessing.ToPixelBoxes(boxes, resized.Width, resized.Height, scores);
+        dets = PostProcessing.FilterByGeometry(dets, p.AreaMin, p.AreaMax, p.ArMin, p.ArMax);
+        var robust = PostProcessing.SoftNmsDistance(dets, p.Sigma, p.DistScale);
+        float dynamicThresh = 0.3f;
+        if (robust.Count > 0)
         {
-            float score = Sigmoid(logits[i]);
-            if (score <= scoreThreshold) continue;
-            float cx = boxes[i*4];
-            float cy = boxes[i*4 + 1];
-            float w = boxes[i*4 + 2];
-            float h = boxes[i*4 + 3];
-            float x1 = (cx - w/2) * resized.Width;
-            float y1 = (cy - h/2) * resized.Height;
-            float x2 = (cx + w/2) * resized.Width;
-            float y2 = (cy + h/2) * resized.Height;
-            detections.Add(new[]{x1,y1,x2,y2,score});
+            var ordered = robust.Select(b => b[4]).OrderBy(v => v).ToList();
+            float median = ordered[ordered.Count / 2];
+            dynamicThresh = p.Alpha * median;
         }
-        return detections.ToArray();
+        var filtered = robust.Where(b => b[4] >= dynamicThresh).ToList();
+        var nms = PostProcessing.Nms(dets, 0.5f);
+        List<float[]> final = filtered.Count < p.NMin ? nms : filtered;
+        return final.ToArray();
     }
 
-    private static float Sigmoid(float value)
-    {
-        return 1f / (1f + MathF.Exp(-value));
-    }
 }
