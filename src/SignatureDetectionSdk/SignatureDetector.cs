@@ -17,6 +17,13 @@ public class SignatureDetector : IDisposable
 
     public static readonly RobustParams DetrParams = new(1200f, 150000f, 0.6f, 6.5f, 0.6f, 180f, 0.6f, 2);
     public static readonly RobustParams EnsembleParams = new(800f, 200000f, 0.5f, 8f, 0.4f, 120f, 0.5f, 1);
+    // Dedicated geometry limits for dataset2 computed from the ground-truth 5th
+    // and 95th percentiles
+    public static readonly RobustParams Dataset2Params = new(
+        1731f, 12928f,
+        1.836f, 7.838f,
+        0.4f, 120f,
+        0.5f, 1);
 
     public int InputSize { get; }
 

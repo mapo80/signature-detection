@@ -26,9 +26,14 @@ public class EnsembleDetector : IDisposable
     public int LastRobustCount { get; private set; }
     public float LastScoreVariance { get; private set; }
 
+    private readonly SignatureDetector.RobustParams _detrParams;
+    private readonly SignatureDetector.RobustParams _ensParams;
+
     public EnsembleDetector(string detrPath, string yoloPath, bool enabled = true,
         int tLow = 1, float vHigh = 0.1f, int topK = 3,
-        float wbfIou = 0.55f, float wbfScore = 0.45f)
+        float wbfIou = 0.55f, float wbfScore = 0.45f,
+        SignatureDetector.RobustParams? detrParams = null,
+        SignatureDetector.RobustParams? ensembleParams = null)
     {
         _enabled = enabled && File.Exists(yoloPath);
         _detr = new SignatureDetector(detrPath);
@@ -38,6 +43,8 @@ public class EnsembleDetector : IDisposable
         _topK = topK;
         _wbfIou = wbfIou;
         _wbfScore = wbfScore;
+        _detrParams = detrParams ?? SignatureDetector.DetrParams;
+        _ensParams = ensembleParams ?? SignatureDetector.EnsembleParams;
     }
 
     public void Dispose()
@@ -50,7 +57,7 @@ public class EnsembleDetector : IDisposable
     public float[][] Predict(string imagePath, float scoreThreshold = 0.1f)
     {
         _total++;
-        var detrBoxes = _detr.Predict(imagePath, scoreThreshold);
+        var detrBoxes = _detr.Predict(imagePath, scoreThreshold, _detrParams);
         LastRobustCount = detrBoxes.Length;
 
         if (!_enabled)
@@ -73,41 +80,41 @@ public class EnsembleDetector : IDisposable
             return detrBoxes;
 
         _used++;
-        var yoloBoxes = _yolo.Predict(imagePath, 0.25f, SignatureDetector.EnsembleParams);
+        var yoloBoxes = _yolo.Predict(imagePath, 0.25f, _ensParams);
         int acc, rej;
         var fused = PostProcessing.WeightedBoxFusion(detrBoxes, yoloBoxes, _wbfIou, _wbfScore, out acc, out rej);
         _fusedAccepted += acc;
         _fusedRejected += rej;
 
         fused = PostProcessing.FilterByGeometry(fused,
-            SignatureDetector.EnsembleParams.AreaMin,
-            SignatureDetector.EnsembleParams.AreaMax,
-            SignatureDetector.EnsembleParams.ArMin,
-            SignatureDetector.EnsembleParams.ArMax);
+            _ensParams.AreaMin,
+            _ensParams.AreaMax,
+            _ensParams.ArMin,
+            _ensParams.ArMax);
         fused = PostProcessing.SoftNmsDistance(fused,
-            SignatureDetector.EnsembleParams.Sigma,
-            SignatureDetector.EnsembleParams.DistScale);
+            _ensParams.Sigma,
+            _ensParams.DistScale);
 
         float dynamicThresh = 0.3f;
         if (fused.Count > 0)
         {
             var ordered = fused.Select(b => b[4]).OrderBy(v => v).ToList();
             float median = ordered[ordered.Count / 2];
-            dynamicThresh = SignatureDetector.EnsembleParams.Alpha * median;
+            dynamicThresh = _ensParams.Alpha * median;
         }
         var filtered = fused.Where(b => b[4] >= dynamicThresh).ToList();
         var nms = PostProcessing.Nms(fused, 0.5f);
-        var finalList = filtered.Count < SignatureDetector.EnsembleParams.NMin ? nms : filtered;
+        var finalList = filtered.Count < _ensParams.NMin ? nms : filtered;
 
         if (finalList.Count == 0)
         {
             if (use)
             {
-                finalList = detrBoxes.ToList();
+                finalList = PostProcessing.Nms(detrBoxes, 0.5f);
             }
             else if (_enabled)
             {
-                var yoloOnly = _yolo.Predict(imagePath, 0.3f, SignatureDetector.EnsembleParams);
+                var yoloOnly = _yolo.Predict(imagePath, 0.3f, _ensParams);
                 finalList = PostProcessing.Nms(yoloOnly, 0.5f);
             }
         }

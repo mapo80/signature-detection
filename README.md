@@ -63,15 +63,15 @@ The `tools/DatasetReport` utility was run on a subset of **20 images** from each
 - *Dataset1 (DETR)*: 7 detections, average inference time **307 ms**.
 - *Dataset1 (YOLOv8)*: 56 detections, average inference time **230 ms**.
 - *Dataset1 ensemble*: 10 detections, average inference time **416 ms**.
-- *Dataset2 (DETR)*: 18 detections, average inference time **308 ms**.
-- *Dataset2 (YOLOv8)*: 91 detections, average inference time **234 ms**.
-- *Dataset2 ensemble*: 21 detections, average inference time **354 ms**.
+- *Dataset2 (DETR)*: 90 detections, average inference time **258 ms**.
+- *Dataset2 (YOLOv8)*: 436 detections, average inference time **141 ms**.
+- *Dataset2 ensemble*: 93 detections, average inference time **382 ms**.
 
 ### Impact of post-processing
 | Dataset | Baseline det | Robust det | Avg Baseline | Avg Robust |
 |---------|-------------:|-----------:|------------:|-----------:|
 | dataset1 | 35 | 7 | 350 | 307 |
-| dataset2 | 22 | 18 | 364 | 308 |
+| dataset2 | 22 | 90 | 364 | 258 |
 
 The updated post‑processing first converts the DETR logits to class
 probabilities, discarding low‑confidence queries. The remaining boxes are
@@ -95,7 +95,7 @@ Quando il file `yolov8s.onnx` è presente, il detector può combinare le predizi
 ## Ottimizzazione Ensemble Condizionale
 
 - **Gating rules**: l'ensemble si attiva solo se il numero di box dopo il filtro robusto (`count_DETR`) è inferiore a `T_low` e la varianza degli score delle migliori `k` box è sotto `V_high`.
-- Con `T_low = 5`, `k = 3` e `V_high = 0.1` l'ensemble è stato utilizzato nel **70%** delle immagini di `dataset1` e nel **20%** di `dataset2`.
+- Con `T_low = 5`, `k = 3` e `V_high = 0.1` l'ensemble è stato utilizzato nel **70%** delle immagini di `dataset1` e nel **95%** di `dataset2`.
 - Se dopo il filtro robusto non rimane alcuna box, il detector torna ai risultati DETR (o YOLOv8) filtrati solo via NMS.
 
 ### Tuning filtro robusto nell'ensemble
@@ -114,7 +114,7 @@ Quando il file `yolov8s.onnx` è presente, il detector può combinare le predizi
 ### Gating su WBF
 
 - Fonde solo le box con IoU ≥ **0.55** e punteggio fuso ≥ **0.45**.
-- Con queste soglie, il 75% delle fusioni di `dataset1` e il 100% di quelle di `dataset2` sono state accettate.
+- Con queste soglie, il 75% delle fusioni di `dataset1` e il 92% di quelle di `dataset2` sono state accettate.
 
 ## Metriche di valutazione
 
@@ -423,5 +423,5 @@ box prima di ricorrere al fallback NMS, così da preservare una copertura minima
 | YOLOv8 | dataset2 | 174 | 157 |
 | Ensemble condizionale | dataset2 | 18 | 443 |
 
-L'ensemble condizionale si è attivato su **20/20** immagini di `dataset1` e su **18/20** di `dataset2`. Le fusioni WBF sono state accettate nel **58%** dei casi su `dataset1` e nel **94%** su `dataset2`.
+L'ensemble condizionale si è attivato su **20/20** immagini di `dataset1` e su **95/100** di `dataset2`. Le fusioni WBF sono state accettate nel **58%** dei casi su `dataset1` e nel **92%** su `dataset2`.
 

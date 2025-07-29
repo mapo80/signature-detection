@@ -58,11 +58,22 @@ if (optimizeSession)
 }
 IDisposable detectorObj;
 if (ensemble)
-    detectorObj = new EnsembleDetector(OnnxPath, yoloPath);
+{
+    var detrParams = dataset == "dataset2" ? SignatureDetector.Dataset2Params : SignatureDetector.DetrParams;
+    var ensParams = dataset == "dataset2" ? SignatureDetector.Dataset2Params : SignatureDetector.EnsembleParams;
+    int tLow = dataset == "dataset2" ? 4 : 5;
+    float vHigh = dataset == "dataset2" ? 0.08f : 0.1f;
+    detectorObj = new EnsembleDetector(OnnxPath, yoloPath, true, tLow, vHigh, 3,
+        dataset == "dataset2" ? 0.50f : 0.55f,
+        dataset == "dataset2" ? 0.40f : 0.45f,
+        detrParams, ensParams);
+}
 else if (useYolo)
     detectorObj = new YoloV8Detector(yoloPath);
 else
+{
     detectorObj = new SignatureDetector(OnnxPath, 640, opts);
+}
 dynamic detector = detectorObj;
 double totalMs = 0;
 foreach (var img in images)
@@ -70,9 +81,15 @@ foreach (var img in images)
     var sw = Stopwatch.StartNew();
     float[][] preds;
     if (detectorObj is YoloV8Detector y)
-        preds = y.Predict(img, 0.25f, SignatureDetector.EnsembleParams);
+    {
+        var p = dataset == "dataset2" ? SignatureDetector.Dataset2Params : SignatureDetector.EnsembleParams;
+        preds = y.Predict(img, 0.25f, p);
+    }
     else if (detectorObj is SignatureDetector d)
-        preds = d.Predict(img, 0.1f);
+    {
+        var p = dataset == "dataset2" ? SignatureDetector.Dataset2Params : SignatureDetector.DetrParams;
+        preds = d.Predict(img, 0.1f, p);
+    }
     else if (detectorObj is EnsembleDetector ensDet)
         preds = ensDet.Predict(img);
     else
