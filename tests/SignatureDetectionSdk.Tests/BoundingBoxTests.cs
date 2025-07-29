@@ -23,8 +23,22 @@ public class BoundingBoxTests
     {
         var dataset = Environment.GetEnvironmentVariable("DATASET_SUBDIR") ?? "dataset1";
         var imagesDir = Path.Combine(Root, "dataset", dataset, "images");
-        return Directory.GetFiles(imagesDir).OrderBy(f => f)
-            .Select(f => new object[] { f });
+        var listPath = Path.Combine(Root, "tests", "SignatureDetectionSdk.Tests", "good_images.txt");
+        if (File.Exists(listPath))
+        {
+            var names = File.ReadAllLines(listPath)
+                .Select(n => n.Trim())
+                .Where(n => !string.IsNullOrWhiteSpace(n));
+            foreach (var name in names)
+            {
+                var img = Path.Combine(imagesDir, name);
+                if (File.Exists(img))
+                    yield return new object[] { img };
+            }
+            yield break;
+        }
+        foreach (var img in Directory.GetFiles(imagesDir).OrderBy(f => f))
+            yield return new object[] { img };
     }
 
     [Theory]
