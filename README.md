@@ -108,10 +108,10 @@ compresi i riepiloghi aggregati, sono salvati nei file `metrics_detr.json` e
 
 ### Metriche complessive
 
-| Modello | Precision | Recall | F1 | mAP50 | mAP | FPS | Avg ms | IoU medio |
-|---------|---------:|------:|----:|------:|----:|----:|-------:|----------:|
-| DETR    | 0.789 | 1.000 | 0.882 | 0.998 | 0.687 | 3.3 | 299.7 | 0.848 |
-| YOLOv8  | 0.100 | 0.933 | 0.181 | 0.399 | 0.317 | 6.9 | 144.7 | 0.850 |
+| Modello | Precision | Recall | F1 | mAP50 | mAP | FPS | Avg inf ms | Avg post ms | IoU medio |
+|---------|---------:|------:|----:|------:|----:|----:|-----------:|------------:|----------:|
+| DETR    | 0.789 | 1.000 | 0.882 | 0.998 | 0.687 | 3.3 | 299.7 | 45.2 | 0.848 |
+| YOLOv8  | 0.100 | 0.933 | 0.181 | 0.399 | 0.317 | 6.9 | 144.7 | 30.1 | 0.850 |
 
 
 ### Istogrammi e categorie di metriche
