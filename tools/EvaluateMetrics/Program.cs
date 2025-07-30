@@ -542,22 +542,22 @@ class Program
         if (cfg != null)
         {
             // simple 3x3 median
+            var rWin = new byte[9];
+            var gWin = new byte[9];
+            var bWin = new byte[9];
             for (int y = 1; y < bmp.Height - 1; y++)
             {
                 for (int x = 1; x < bmp.Width - 1; x++)
                 {
-                    Span<byte> r = stackalloc byte[9];
-                    Span<byte> g = stackalloc byte[9];
-                    Span<byte> b = stackalloc byte[9];
                     int k = 0;
                     for (int yy = -1; yy <= 1; yy++)
                         for (int xx = -1; xx <= 1; xx++)
                         {
                             var c = input.GetPixel(x + xx, y + yy);
-                            r[k] = c.Red; g[k] = c.Green; b[k] = c.Blue; k++;
+                            rWin[k] = c.Red; gWin[k] = c.Green; bWin[k] = c.Blue; k++;
                         }
-                    r.Sort(); g.Sort(); b.Sort();
-                    bmp.SetPixel(x, y, new SKColor(r[4], g[4], b[4]));
+                    Array.Sort(rWin); Array.Sort(gWin); Array.Sort(bWin);
+                    bmp.SetPixel(x, y, new SKColor(rWin[4], gWin[4], bWin[4]));
                 }
             }
 

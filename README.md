@@ -119,6 +119,26 @@ dotnet run --project tools/EvaluateMetrics/EvaluateMetrics.csproj \
   --detrConfidenceThreshold 0.30
 ```
 
+### Pipeline di inferenza
+La libreria `SignatureDetectionSdk` include la classe `DetectionPipeline` che
+carica i due modelli e applica un leggero pre‑processing (median filter e
+equalizzazione dell'istogramma). Tramite `PipelineConfig` è possibile attivare o
+disattivare ogni modello, definire la soglia di confidence e scegliere tra la
+strategia `SequentialFallback` (YOLOv8 seguito da DETR solo se FP>2 o FN>0) o
+`Parallel` che esegue entrambi i modelli insieme. L'unione delle predizioni può
+essere usata per massima copertura.
+
+Esempio d'uso:
+
+```csharp
+var cfg = new PipelineConfig(EnableYoloV8: true, EnableDetr: true,
+    Strategy: "SequentialFallback", YoloConfidenceThreshold: 0.6f,
+    YoloNmsIoU: 0.3f, DetrConfidenceThreshold: 0.3f);
+using var pipeline = new DetectionPipeline("conditional_detr_signature.onnx",
+    "yolov8s.onnx", cfg);
+var boxes = pipeline.Detect("image.jpg");
+```
+
 ### Metriche complessive
 
 | Modello | Precision | Recall | F1 | mAP50 | mAP | FPS | Avg inf ms | Avg post ms | IoU medio |
