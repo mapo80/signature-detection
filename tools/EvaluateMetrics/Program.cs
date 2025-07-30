@@ -2,11 +2,14 @@ using SignatureDetectionSdk;
 using SkiaSharp;
 using System.Globalization;
 using System.Text.Json;
+using System.Linq;
+using System.Collections.Generic;
 
 record struct Detection(float X1, float Y1, float X2, float Y2, float Score, int Image);
 record struct GroundTruth(float X1, float Y1, float X2, float Y2, int Image);
 
-record struct ImageDetail(int Image, double Ms, int Pred, int GroundTruth, int TP, int FP, int FN, float[] IoUs);
+record struct ImageDetail(int Image, double Ms, int Pred, int GroundTruth, int TP, int FP, int FN,
+    float OverlapMean, int OverlapMax, float[] IoUs, float[] ConfTP, float[] ConfFP);
 
 record struct Aggregate(
     float Precision, float Recall, float F1,
@@ -18,6 +21,8 @@ record struct Aggregate(
     double AvgMs, double MedianMs, double StdMs,
     double P50Ms, double P90Ms, double P99Ms,
     int FP, int FN, double FPS);
+
+record struct ThresholdResult(float Threshold, float Precision, float Recall, float F1, float AP50, float mAP);
 
 class Program
 {
@@ -46,31 +51,33 @@ class Program
         if (images.Length > 100)
             images = images.Take(100).ToArray();
 
-        var detr = EvaluateDetr(images, labelsDir);
-        var yolo = EvaluateYolo(images, labelsDir);
+        var detr = RunModel(img => new SignatureDetector(OnnxPath).Predict(img), images, labelsDir, true);
+        EvalData? yolo = File.Exists(YoloPath) ? RunModel(img => new YoloV8Detector(YoloPath).Predict(img), images, labelsDir, false) : null;
 
-        Console.WriteLine($"DETR    Precision: {detr.Precision:F3} Recall: {detr.Recall:F3} F1: {detr.F1:F3} mAP50: {detr.AP50:F3} mAP: {detr.mAP:F3} FPS: {detr.FPS:F1}");
-        Console.WriteLine($"YOLOv8 Precision: {yolo.Precision:F3} Recall: {yolo.Recall:F3} F1: {yolo.F1:F3} mAP50: {yolo.AP50:F3} mAP: {yolo.mAP:F3} FPS: {yolo.FPS:F1}");
+        var detrAgg = ComputeMetrics(detr.Preds, detr.GTs, detr.Times, detr.MatchedIoU, detr.CenterErr, detr.CornerErr, detr.AreaRatio, detr.AspectDiff, detr.PerImageFP);
+        var yoloAgg = yolo.HasValue ? ComputeMetrics(yolo.Value.Preds, yolo.Value.GTs, yolo.Value.Times, yolo.Value.MatchedIoU, yolo.Value.CenterErr, yolo.Value.CornerErr, yolo.Value.AreaRatio, yolo.Value.AspectDiff, yolo.Value.PerImageFP) : new Aggregate();
+
+        var thresholds = new[] {0.25f,0.5f,0.75f,0.9f};
+        var detrTh = thresholds.Select(t => ThresholdMetrics(detr.Preds, detr.GTs, t)).ToArray();
+        var yoloTh = yolo.HasValue ? thresholds.Select(t => ThresholdMetrics(yolo.Value.Preds, yolo.Value.GTs, t)).ToArray() : Array.Empty<ThresholdResult>();
+
+        SaveJson("detr", detrAgg, detr.Details, detr.Times, detr.MatchedIoU, detrTh);
+        if (yolo.HasValue) SaveJson("yolo", yoloAgg, yolo.Value.Details, yolo.Value.Times, yolo.Value.MatchedIoU, yoloTh);
+
+        Console.WriteLine($"DETR    Precision: {detrAgg.Precision:F3} Recall: {detrAgg.Recall:F3} F1: {detrAgg.F1:F3} mAP50: {detrAgg.AP50:F3} mAP: {detrAgg.mAP:F3} FPS: {detrAgg.FPS:F1}");
+        if (yolo != null)
+            Console.WriteLine($"YOLOv8 Precision: {yoloAgg.Precision:F3} Recall: {yoloAgg.Recall:F3} F1: {yoloAgg.F1:F3} mAP50: {yoloAgg.AP50:F3} mAP: {yoloAgg.mAP:F3} FPS: {yoloAgg.FPS:F1}");
     }
 
-    static Aggregate EvaluateDetr(string[] images, string labelsDir)
-    {
-        using var det = new SignatureDetector(OnnxPath);
-        return Evaluate(img => det.Predict(img), images, labelsDir, true, "detr");
-    }
+    record struct EvalData(List<Detection> Preds, List<GroundTruth> GTs, List<ImageDetail> Details,
+        List<double> Times, List<float> MatchedIoU, List<float> CenterErr, List<float> CornerErr,
+        List<float> AreaRatio, List<float> AspectDiff, List<int> PerImageFP);
 
-    static Aggregate EvaluateYolo(string[] images, string labelsDir)
-    {
-        if (!File.Exists(YoloPath))
-            return new Aggregate();
-        using var det = new YoloV8Detector(YoloPath);
-        return Evaluate(img => det.Predict(img), images, labelsDir, false, "yolo");
-    }
-
-    static Aggregate Evaluate(Func<string, float[][]> predict, string[] images, string labelsDir, bool convertFromDetr, string prefix)
+    static EvalData RunModel(Func<string, float[][]> predict, string[] images, string labelsDir, bool convert)
     {
         var preds = new List<Detection>();
         var gts = new List<GroundTruth>();
+        var details = new List<ImageDetail>();
         var times = new List<double>();
         var matchedIoU = new List<float>();
         var centerErr = new List<float>();
@@ -78,95 +85,125 @@ class Program
         var areaRatio = new List<float>();
         var aspectDiff = new List<float>();
         var perImageFP = new List<int>();
-        var details = new List<ImageDetail>();
+
         int idx = 0;
         foreach (var img in images)
         {
-            using var bitmap = SKBitmap.Decode(img);
-            int w = bitmap.Width;
-            int h = bitmap.Height;
+            using var bmp = SKBitmap.Decode(img);
+            int w = bmp.Width;
+            int h = bmp.Height;
 
             var labelPath = Path.Combine(labelsDir, Path.GetFileNameWithoutExtension(img) + ".txt");
+            var gtForImg = new List<GroundTruth>();
             if (File.Exists(labelPath))
             {
                 foreach (var line in File.ReadLines(labelPath))
                 {
-                    var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                    if (parts.Length >= 5)
+                    var p = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                    if (p.Length >= 5)
                     {
-                        float cx = float.Parse(parts[1], CultureInfo.InvariantCulture);
-                        float cy = float.Parse(parts[2], CultureInfo.InvariantCulture);
-                        float bw = float.Parse(parts[3], CultureInfo.InvariantCulture);
-                        float bh = float.Parse(parts[4], CultureInfo.InvariantCulture);
-                        float x1 = (cx - bw / 2f) * w;
-                        float y1 = (cy - bh / 2f) * h;
-                        float x2 = (cx + bw / 2f) * w;
-                        float y2 = (cy + bh / 2f) * h;
-                        gts.Add(new GroundTruth(x1, y1, x2, y2, idx));
+                        float cx = float.Parse(p[1], CultureInfo.InvariantCulture);
+                        float cy = float.Parse(p[2], CultureInfo.InvariantCulture);
+                        float bw = float.Parse(p[3], CultureInfo.InvariantCulture);
+                        float bh = float.Parse(p[4], CultureInfo.InvariantCulture);
+                        float x1 = (cx - bw/2f) * w;
+                        float y1 = (cy - bh/2f) * h;
+                        float x2 = (cx + bw/2f) * w;
+                        float y2 = (cy + bh/2f) * h;
+                        var gt = new GroundTruth(x1,y1,x2,y2,idx);
+                        gts.Add(gt);
+                        gtForImg.Add(gt);
                     }
                 }
             }
+
             var sw = System.Diagnostics.Stopwatch.StartNew();
-            var dets = predict(img);
+            var result = predict(img);
             sw.Stop();
             times.Add(sw.Elapsed.TotalMilliseconds);
-            var localPreds = new List<Detection>();
-            foreach (var d in dets)
+
+            var imagePreds = new List<Detection>();
+            foreach (var d in result)
             {
                 float x1 = d[0];
                 float y1 = d[1];
                 float x2 = d[2];
                 float y2 = d[3];
-                float score = d[4];
-                if (convertFromDetr)
+                float sc = d[4];
+                if (convert)
                 {
                     x1 = x1 / 640f * w;
                     y1 = y1 / 640f * h;
                     x2 = x2 / 640f * w;
                     y2 = y2 / 640f * h;
                 }
-                var detRec = new Detection(x1, y1, x2, y2, score, idx);
-                preds.Add(detRec);
-                localPreds.Add(detRec);
+                var det = new Detection(x1,y1,x2,y2,sc,idx);
+                preds.Add(det);
+                imagePreds.Add(det);
             }
 
-            var localGTs = gts.Where(g => g.Image == idx).ToList();
-            var usedLocal = new bool[localGTs.Count];
-            int localTP = 0;
-            var localIoU = new List<float>();
-            foreach (var p in localPreds)
+            var used = new bool[gtForImg.Count];
+            var ious = new List<float>();
+            var confTP = new List<float>();
+            var confFP = new List<float>();
+            int tp=0;
+            int fp=0;
+            foreach (var p in imagePreds)
             {
-                float best = 0.5f;
-                int match = -1;
-                for (int j = 0; j < localGTs.Count; j++)
+                float best=0.5f; int match=-1; float bestIoU=0f;
+                for(int j=0;j<gtForImg.Count;j++)
                 {
-                    if (usedLocal[j]) continue;
-                    float iou = IoU(p, localGTs[j]);
-                    if (iou >= best)
+                    if(used[j]) continue;
+                    float iou = IoU(p, gtForImg[j]);
+                    if(iou>=best)
                     {
-                        best = iou;
-                        match = j;
+                        best=iou; match=j; bestIoU=iou;
                     }
                 }
-                if (match != -1)
+                if(match!=-1)
                 {
-                    usedLocal[match] = true;
-                    localTP++;
-                    localIoU.Add(best);
+                    used[match]=true; tp++; ious.Add(bestIoU); confTP.Add(p.Score);
                 }
+                else { fp++; confFP.Add(p.Score); }
             }
-            int localFP = localPreds.Count - localTP;
-            int localFN = localGTs.Count - localTP;
-            details.Add(new ImageDetail(idx, sw.Elapsed.TotalMilliseconds, localPreds.Count, localGTs.Count, localTP, localFP, localFN, localIoU.ToArray()));
+            int fn = gtForImg.Count - tp;
+
+            // overlap counts
+            int overlaps=0; int pairs=0; int maxOverlap=0;
+            for(int i=0;i<imagePreds.Count;i++)
+            {
+                int local=0;
+                for(int j=i+1;j<imagePreds.Count;j++)
+                {
+                    if(IoU(imagePreds[i], imagePreds[j])>0.3f) { overlaps++; local++; }
+                }
+                if(local>maxOverlap) maxOverlap=local;
+                pairs++;
+            }
+            float overlapMean = pairs>0 ? (float)overlaps/pairs : 0f;
+
+            details.Add(new ImageDetail(idx, sw.Elapsed.TotalMilliseconds, imagePreds.Count, gtForImg.Count,
+                tp, fp, fn, overlapMean, maxOverlap, ious.ToArray(), confTP.ToArray(), confFP.ToArray()));
 
             idx++;
         }
 
-        var agg = ComputeMetrics(preds, gts, times, matchedIoU, centerErr, cornerErr, areaRatio, aspectDiff, perImageFP);
-        var payload = new { metrics = agg, details, times, ious = matchedIoU };
-        File.WriteAllText(Path.Combine(Root, $"metrics_{prefix}.json"), JsonSerializer.Serialize(payload));
-        return agg;
+        return new EvalData(preds,gts,details,times,matchedIoU,centerErr,cornerErr,areaRatio,aspectDiff,perImageFP);
     }
+
+    static void SaveJson(string prefix, Aggregate metrics, List<ImageDetail> details, List<double> times, List<float> ious, ThresholdResult[] thresholds)
+    {
+        var payload = new { metrics, details, times, ious, thresholds };
+        File.WriteAllText(Path.Combine(Root, $"metrics_{prefix}.json"), JsonSerializer.Serialize(payload));
+    }
+
+    static ThresholdResult ThresholdMetrics(List<Detection> preds, List<GroundTruth> gts, float thr)
+    {
+        var filtered = preds.Where(p => p.Score >= thr).ToList();
+        var agg = ComputeMetrics(filtered, gts, new List<double>(), new List<float>(), new List<float>(), new List<float>(), new List<float>(), new List<float>(), new List<int>());
+        return new ThresholdResult(thr, agg.Precision, agg.Recall, agg.F1, agg.AP50, agg.mAP);
+    }
+
 
     static Aggregate ComputeMetrics(List<Detection> preds, List<GroundTruth> gts,
         List<double> times, List<float> matchedIoU, List<float> centerErr, List<float> cornerErr,
@@ -270,10 +307,10 @@ class Program
         int tpCount = (int)cumTP[^1];
         int fnCount = gts.Count - tpCount;
 
-        double avgMs = times.Average();
+        double avgMs = times.Count>0 ? times.Average() : 0;
         var sortedT = times.OrderBy(v => v).ToArray();
         double medianMs = sortedT.Length > 0 ? sortedT[sortedT.Length/2] : 0;
-        double stdMs = Math.Sqrt(times.Select(t => Math.Pow(t - avgMs,2)).Sum() / times.Count);
+        double stdMs = times.Count>0 ? Math.Sqrt(times.Select(t => Math.Pow(t - avgMs,2)).Sum() / times.Count) : 0;
         double p50 = Percentile(sortedT,0.5);
         double p90 = Percentile(sortedT,0.9);
         double p99 = Percentile(sortedT,0.99);
@@ -308,6 +345,20 @@ class Program
         if (inter <= 0) return 0f;
         float areaA = MathF.Max(0, d.X2 - d.X1) * MathF.Max(0, d.Y2 - d.Y1);
         float areaB = MathF.Max(0, g.X2 - g.X1) * MathF.Max(0, g.Y2 - g.Y1);
+        float union = areaA + areaB - inter;
+        return union > 0 ? inter / union : 0f;
+    }
+
+    static float IoU(Detection a, Detection b)
+    {
+        float xx1 = MathF.Max(a.X1, b.X1);
+        float yy1 = MathF.Max(a.Y1, b.Y1);
+        float xx2 = MathF.Min(a.X2, b.X2);
+        float yy2 = MathF.Min(a.Y2, b.Y2);
+        float inter = MathF.Max(0, xx2 - xx1) * MathF.Max(0, yy2 - yy1);
+        if (inter <= 0) return 0f;
+        float areaA = MathF.Max(0, a.X2 - a.X1) * MathF.Max(0, a.Y2 - a.Y1);
+        float areaB = MathF.Max(0, b.X2 - b.X1) * MathF.Max(0, b.Y2 - b.Y1);
         float union = areaA + areaB - inter;
         return union > 0 ? inter / union : 0f;
     }
