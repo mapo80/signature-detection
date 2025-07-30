@@ -97,10 +97,13 @@ dotnet run --project tools/YoloV8Inference/YoloV8Inference.csproj
 
 ## Valutazione su `dataset1`
 
-La console `EvaluateMetrics` carica tutte le immagini da `dataset/dataset1`, esegue
-inferenza con i due modelli e associa ogni predizione al ground truth con una soglia
-di **IoU=0.5**. Per ogni immagine vengono registrati i tempi di esecuzione e gli errori
-di localizzazione; i risultati aggregati sono salvati nei file `metrics_detr.json` e
+Il tool `EvaluateMetrics` carica immagini e annotazioni da `dataset/dataset1`. Se il
+dataset contiene più di 100 elementi vengono considerate solo le prime 100 immagini.
+Ogni file viene processato con il modello **Conditional DETR** e con **YOLOv8**. Per
+ciascuna immagine vengono registrati: tempo di inferenza, numero di box predette,
+numero di ground truth e conteggio di TP/FP/FN (match a IoU≥0.5). Le IoU dei match
+sono utilizzate per calcolare le statistiche di localizzazione. Tutti i dati,
+compresi i riepiloghi aggregati, sono salvati nei file `metrics_detr.json` e
 `metrics_yolo.json`.
 
 ### Metriche complessive
@@ -110,13 +113,44 @@ di localizzazione; i risultati aggregati sono salvati nei file `metrics_detr.jso
 | DETR    | 0.789 | 1.000 | 0.882 | 0.998 | 0.687 | 3.6 | 277.8 | 0.848 |
 | YOLOv8  | 0.100 | 0.933 | 0.181 | 0.399 | 0.317 | 7.1 | 140.3 | 0.850 |
 
-### Istogrammi
+
+### Istogrammi e categorie di metriche
 Le figure generate dallo script Python sono salvate in formato base64 nella cartella `histograms`:
 
 - `histograms/detr_time.base64`
 - `histograms/detr_iou.base64`
 - `histograms/yolo_time.base64`
 - `histograms/yolo_iou.base64`
+
+Le metriche sono raggruppate in cinque categorie: **Tempi**, **Detection**, **Localization**, **Count** e **Post-processing**. Ogni gruppo è riportato nei file JSON con statistiche di media, deviazione standard e percentili. Qui di seguito alcuni esempi di immagini annotate.
+
+#### Esempio DETR
+```base64
+/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdC
+IFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAA
+AADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlk
+ZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAA
+ABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAA
+AAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAA
+AABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEA
+AAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAA
+ACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb/2wBDAAMCAgMCAgMDAwMEAwME
+BQgFBQQEBQoHBwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT/2wBDAQME
+```
+
+#### Esempio YOLOv8
+```base64
+/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdC
+IFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAA
+AADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlk
+ZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAA
+ABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAA
+AAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAA
+AABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEA
+AAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAA
+ACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb/2wBDAAMCAgMCAgMDAwMEAwME
+BQgFBQQEBQoHBwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT/2wBDAQME
+```
 
 
 ## ONNX quantization

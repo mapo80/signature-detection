@@ -30,3 +30,8 @@ To generate a full report of detections for every image run:
 dotnet run --project tools/DatasetReport/DatasetReport.csproj
 ```
 The results will be written to `dataset_report.csv`.
+
+## Vincoli di commit
+
+- Tutti i file binari generati devono essere serializzati in Base64 prima del commit.
+- Il README.md deve contenere il report dettagliato e aggiornato automaticamente.

@@ -6,6 +6,8 @@ using System.Text.Json;
 record struct Detection(float X1, float Y1, float X2, float Y2, float Score, int Image);
 record struct GroundTruth(float X1, float Y1, float X2, float Y2, int Image);
 
+record struct ImageDetail(int Image, double Ms, int Pred, int GroundTruth, int TP, int FP, int FN, float[] IoUs);
+
 record struct Aggregate(
     float Precision, float Recall, float F1,
     float AP50, float mAP,
@@ -41,8 +43,8 @@ class Program
         string imagesDir = Path.Combine(Root, "dataset", dataset, "images");
         string labelsDir = Path.Combine(Root, "dataset", dataset, "labels");
         var images = Directory.GetFiles(imagesDir, "*.jpg").OrderBy(f => f).ToArray();
-        if (int.TryParse(Environment.GetEnvironmentVariable("MAX_IMAGES"), out int max) && max > 0 && max < images.Length)
-            images = images.Take(max).ToArray();
+        if (images.Length > 100)
+            images = images.Take(100).ToArray();
 
         var detr = EvaluateDetr(images, labelsDir);
         var yolo = EvaluateYolo(images, labelsDir);
@@ -76,6 +78,7 @@ class Program
         var areaRatio = new List<float>();
         var aspectDiff = new List<float>();
         var perImageFP = new List<int>();
+        var details = new List<ImageDetail>();
         int idx = 0;
         foreach (var img in images)
         {
@@ -107,6 +110,7 @@ class Program
             var dets = predict(img);
             sw.Stop();
             times.Add(sw.Elapsed.TotalMilliseconds);
+            var localPreds = new List<Detection>();
             foreach (var d in dets)
             {
                 float x1 = d[0];
@@ -121,14 +125,45 @@ class Program
                     x2 = x2 / 640f * w;
                     y2 = y2 / 640f * h;
                 }
-                preds.Add(new Detection(x1, y1, x2, y2, score, idx));
+                var detRec = new Detection(x1, y1, x2, y2, score, idx);
+                preds.Add(detRec);
+                localPreds.Add(detRec);
             }
+
+            var localGTs = gts.Where(g => g.Image == idx).ToList();
+            var usedLocal = new bool[localGTs.Count];
+            int localTP = 0;
+            var localIoU = new List<float>();
+            foreach (var p in localPreds)
+            {
+                float best = 0.5f;
+                int match = -1;
+                for (int j = 0; j < localGTs.Count; j++)
+                {
+                    if (usedLocal[j]) continue;
+                    float iou = IoU(p, localGTs[j]);
+                    if (iou >= best)
+                    {
+                        best = iou;
+                        match = j;
+                    }
+                }
+                if (match != -1)
+                {
+                    usedLocal[match] = true;
+                    localTP++;
+                    localIoU.Add(best);
+                }
+            }
+            int localFP = localPreds.Count - localTP;
+            int localFN = localGTs.Count - localTP;
+            details.Add(new ImageDetail(idx, sw.Elapsed.TotalMilliseconds, localPreds.Count, localGTs.Count, localTP, localFP, localFN, localIoU.ToArray()));
 
             idx++;
         }
 
         var agg = ComputeMetrics(preds, gts, times, matchedIoU, centerErr, cornerErr, areaRatio, aspectDiff, perImageFP);
-        var payload = new { metrics = agg, times, ious = matchedIoU };
+        var payload = new { metrics = agg, details, times, ious = matchedIoU };
         File.WriteAllText(Path.Combine(Root, $"metrics_{prefix}.json"), JsonSerializer.Serialize(payload));
         return agg;
     }
