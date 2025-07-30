@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Text.Json;
 using System.Linq;
 using System.Collections.Generic;
+using System.Text;
 
 record struct Detection(float X1, float Y1, float X2, float Y2, float Score, int Image);
 record struct GroundTruth(float X1, float Y1, float X2, float Y2, int Image);
@@ -26,11 +27,38 @@ record struct Aggregate(
 
 record struct ThresholdResult(float Threshold, float Precision, float Recall, float F1, float AP50, float mAP);
 
+record class PipelineConfig
+{
+    public bool EnableYoloV8 { get; init; } = true;
+    public bool EnableDetr { get; init; } = true;
+    public string Strategy { get; init; } = "SequentialFallback"; // or Parallel
+    public float YoloConfidenceThreshold { get; init; } = 0.6f;
+    public float YoloNmsIoU { get; init; } = 0.3f;
+    public float DetrConfidenceThreshold { get; init; } = 0.3f;
+    public int FallbackFp { get; init; } = 2;
+    public int FallbackFn { get; init; } = 0;
+}
+
 class Program
 {
     static string Root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../"));
     static string OnnxPath = Path.Combine(Root, "conditional_detr_signature.onnx");
     static string YoloPath = Path.Combine(Root, "yolov8s.onnx");
+
+    static PipelineConfig LoadConfig(string path)
+    {
+        if (File.Exists(path))
+        {
+            try
+            {
+                var text = File.ReadAllText(path);
+                var cfg = JsonSerializer.Deserialize<PipelineConfig>(text);
+                if (cfg != null) return cfg;
+            }
+            catch { }
+        }
+        return new PipelineConfig();
+    }
 
     static void EnsureModel()
     {
@@ -46,6 +74,22 @@ class Program
     static void Main(string[] args)
     {
         string dataset = args.Length > 0 ? args[0] : "dataset1";
+        var cfg = LoadConfig(Path.Combine(Root, "config.json"));
+        for(int i=1;i<args.Length-1;i+=2)
+        {
+            var key = args[i].TrimStart('-');
+            var val = args[i+1];
+            switch(key)
+            {
+                case "enable-yolov8": cfg = cfg with { EnableYoloV8 = bool.Parse(val) }; break;
+                case "enable-detr": cfg = cfg with { EnableDetr = bool.Parse(val) }; break;
+                case "strategy": cfg = cfg with { Strategy = val }; break;
+                case "yoloConfidenceThreshold": cfg = cfg with { YoloConfidenceThreshold = float.Parse(val,CultureInfo.InvariantCulture) }; break;
+                case "yoloNmsIoU": cfg = cfg with { YoloNmsIoU = float.Parse(val,CultureInfo.InvariantCulture) }; break;
+                case "detrConfidenceThreshold": cfg = cfg with { DetrConfidenceThreshold = float.Parse(val,CultureInfo.InvariantCulture) }; break;
+            }
+        }
+
         EnsureModel();
         string imagesDir = Path.Combine(Root, "dataset", dataset, "images");
         string labelsDir = Path.Combine(Root, "dataset", dataset, "labels");
@@ -53,21 +97,37 @@ class Program
         if (images.Length > 100)
             images = images.Take(100).ToArray();
 
-        var detr = RunModel(img => new SignatureDetector(OnnxPath).Predict(img), images, labelsDir, true);
-        EvalData? yolo = File.Exists(YoloPath) ? RunModel(img => new YoloV8Detector(YoloPath).Predict(img), images, labelsDir, false) : null;
+        EvalData? detr = null;
+        EvalData? yolo = null;
+        if(cfg.EnableDetr)
+            detr = RunModel(img => new SignatureDetector(OnnxPath).Predict(img, cfg.DetrConfidenceThreshold), images, labelsDir, true, cfg);
+        if(cfg.EnableYoloV8 && File.Exists(YoloPath))
+            yolo = RunModel(img => new YoloV8Detector(YoloPath).Predict(img, cfg.YoloConfidenceThreshold), images, labelsDir, false, cfg);
 
-        var detrAgg = ComputeMetrics(detr.Preds, detr.GTs, detr.InfTimes, detr.PostTimes, detr.MatchedIoU, detr.CenterErr, detr.CornerErr, detr.AreaRatio, detr.AspectDiff, detr.PerImageFP);
+        var detrAgg = detr.HasValue ? ComputeMetrics(detr.Value.Preds, detr.Value.GTs, detr.Value.InfTimes, detr.Value.PostTimes, detr.Value.MatchedIoU, detr.Value.CenterErr, detr.Value.CornerErr, detr.Value.AreaRatio, detr.Value.AspectDiff, detr.Value.PerImageFP) : new Aggregate();
         var yoloAgg = yolo.HasValue ? ComputeMetrics(yolo.Value.Preds, yolo.Value.GTs, yolo.Value.InfTimes, yolo.Value.PostTimes, yolo.Value.MatchedIoU, yolo.Value.CenterErr, yolo.Value.CornerErr, yolo.Value.AreaRatio, yolo.Value.AspectDiff, yolo.Value.PerImageFP) : new Aggregate();
 
         var thresholds = new[] {0.25f,0.5f,0.75f,0.9f};
-        var detrTh = thresholds.Select(t => ThresholdMetrics(detr.Preds, detr.GTs, t)).ToArray();
+        var detrTh = detr.HasValue ? thresholds.Select(t => ThresholdMetrics(detr.Value.Preds, detr.Value.GTs, t)).ToArray() : Array.Empty<ThresholdResult>();
         var yoloTh = yolo.HasValue ? thresholds.Select(t => ThresholdMetrics(yolo.Value.Preds, yolo.Value.GTs, t)).ToArray() : Array.Empty<ThresholdResult>();
 
-        SaveJson("detr", detrAgg, detr.Details, detr.InfTimes, detr.PostTimes, detr.MatchedIoU, detrTh);
+        if (detr.HasValue) SaveJson("detr", detrAgg, detr.Value.Details, detr.Value.InfTimes, detr.Value.PostTimes, detr.Value.MatchedIoU, detrTh);
         if (yolo.HasValue) SaveJson("yolo", yoloAgg, yolo.Value.Details, yolo.Value.InfTimes, yolo.Value.PostTimes, yolo.Value.MatchedIoU, yoloTh);
 
-        Console.WriteLine($"DETR    Precision: {detrAgg.Precision:F3} Recall: {detrAgg.Recall:F3} F1: {detrAgg.F1:F3} mAP50: {detrAgg.AP50:F3} mAP: {detrAgg.mAP:F3} FPS: {detrAgg.FPS:F1}");
-        if (yolo != null)
+        if (detr.HasValue && yolo.HasValue)
+        {
+            List<Detection> combined;
+            if (cfg.Strategy.StartsWith("Parallel", StringComparison.OrdinalIgnoreCase))
+                combined = detr.Value.Preds.Concat(yolo.Value.Preds).ToList();
+            else
+                combined = CombineFallback(detr.Value, yolo.Value, cfg);
+            var combAgg = ComputeMetrics(combined, detr.Value.GTs, new List<double>(), new List<double>(), new List<float>(), new List<float>(), new List<float>(), new List<float>(), new List<float>(), new List<int>());
+            Console.WriteLine($"Combined Precision: {combAgg.Precision:F3} Recall: {combAgg.Recall:F3} F1: {combAgg.F1:F3} mAP: {combAgg.mAP:F3}");
+        }
+
+        if(detr.HasValue)
+            Console.WriteLine($"DETR    Precision: {detrAgg.Precision:F3} Recall: {detrAgg.Recall:F3} F1: {detrAgg.F1:F3} mAP50: {detrAgg.AP50:F3} mAP: {detrAgg.mAP:F3} FPS: {detrAgg.FPS:F1}");
+        if (yolo.HasValue)
             Console.WriteLine($"YOLOv8 Precision: {yoloAgg.Precision:F3} Recall: {yoloAgg.Recall:F3} F1: {yoloAgg.F1:F3} mAP50: {yoloAgg.AP50:F3} mAP: {yoloAgg.mAP:F3} FPS: {yoloAgg.FPS:F1}");
     }
 
@@ -75,7 +135,7 @@ class Program
         List<double> InfTimes, List<double> PostTimes, List<float> MatchedIoU, List<float> CenterErr, List<float> CornerErr,
         List<float> AreaRatio, List<float> AspectDiff, List<int> PerImageFP);
 
-    static EvalData RunModel(Func<string, float[][]> predict, string[] images, string labelsDir, bool convert)
+    static EvalData RunModel(Func<string, float[][]> predict, string[] images, string labelsDir, bool convert, PipelineConfig cfg)
     {
         var preds = new List<Detection>();
         var gts = new List<GroundTruth>();
@@ -92,7 +152,8 @@ class Program
         int idx = 0;
         foreach (var img in images)
         {
-            using var bmp = SKBitmap.Decode(img);
+            using var original = SKBitmap.Decode(img);
+            using var bmp = Preprocess(original, cfg);
             int w = bmp.Width;
             int h = bmp.Height;
 
@@ -141,9 +202,9 @@ class Program
             times.Add(swInf.Elapsed.TotalMilliseconds);
             var swPost = System.Diagnostics.Stopwatch.StartNew();
 
-            var imagePreds = new List<Detection>();
-            foreach (var d in result)
-            {
+        var tempPreds = new List<Detection>();
+        foreach (var d in result)
+        {
                 float x1 = d[0];
                 float y1 = d[1];
                 float x2 = d[2];
@@ -156,10 +217,13 @@ class Program
                     x2 = x2 / 640f * w;
                     y2 = y2 / 640f * h;
                 }
-                var det = new Detection(x1,y1,x2,y2,sc,idx);
-                preds.Add(det);
-                imagePreds.Add(det);
-            }
+            var det = new Detection(x1,y1,x2,y2,sc,idx);
+            tempPreds.Add(det);
+        }
+        if(!convert)
+            tempPreds = ApplyNms(tempPreds, cfg.YoloNmsIoU);
+        var imagePreds = tempPreds;
+        preds.AddRange(imagePreds);
 
             var used = new bool[gtForImg.Count];
             var ious = new List<float>();
@@ -468,5 +532,91 @@ class Program
         double avg = arr.Average();
         double sum = arr.Sum(v => (v - avg) * (v - avg));
         return (float)Math.Sqrt(sum / arr.Length);
+    }
+
+    static SKBitmap Preprocess(SKBitmap input, PipelineConfig cfg)
+    {
+        if (!cfg.EnableDetr && !cfg.EnableYoloV8) return input;
+        var bmp = new SKBitmap(input.Info.Width, input.Info.Height);
+        input.CopyTo(bmp);
+        if (cfg != null)
+        {
+            // simple 3x3 median
+            for (int y = 1; y < bmp.Height - 1; y++)
+            {
+                for (int x = 1; x < bmp.Width - 1; x++)
+                {
+                    Span<byte> r = stackalloc byte[9];
+                    Span<byte> g = stackalloc byte[9];
+                    Span<byte> b = stackalloc byte[9];
+                    int k = 0;
+                    for (int yy = -1; yy <= 1; yy++)
+                        for (int xx = -1; xx <= 1; xx++)
+                        {
+                            var c = input.GetPixel(x + xx, y + yy);
+                            r[k] = c.Red; g[k] = c.Green; b[k] = c.Blue; k++;
+                        }
+                    r.Sort(); g.Sort(); b.Sort();
+                    bmp.SetPixel(x, y, new SKColor(r[4], g[4], b[4]));
+                }
+            }
+
+            // histogram equalization on V channel
+            int[] hist = new int[256];
+            for (int y = 0; y < bmp.Height; y++)
+                for (int x = 0; x < bmp.Width; x++)
+                {
+                    bmp.GetPixel(x, y).ToHsv(out _, out _, out float v);
+                    int idx = (int)(v * 255f);
+                    hist[idx]++;
+                }
+            int total = bmp.Width * bmp.Height;
+            float[] cdf = new float[256];
+            int sum = 0;
+            for (int i = 0; i < 256; i++) { sum += hist[i]; cdf[i] = sum / (float)total; }
+            for (int y = 0; y < bmp.Height; y++)
+                for (int x = 0; x < bmp.Width; x++)
+                {
+                    var c = bmp.GetPixel(x, y);
+                    c.ToHsv(out float h, out float s, out float v);
+                    int idx = (int)(v * 255f);
+                    float nv = cdf[idx];
+                    var newC = SKColor.FromHsv(h, s, nv);
+                    bmp.SetPixel(x, y, newC);
+                }
+        }
+        return bmp;
+    }
+
+    static List<Detection> ApplyNms(List<Detection> dets, float iou)
+    {
+        var result = new List<Detection>();
+        var sorted = dets.OrderByDescending(d => d.Score).ToList();
+        var removed = new bool[sorted.Count];
+        for (int i = 0; i < sorted.Count; i++)
+        {
+            if (removed[i]) continue;
+            var a = sorted[i];
+            result.Add(a);
+            for (int j = i + 1; j < sorted.Count; j++)
+            {
+                if (removed[j]) continue;
+                if (IoU(a, sorted[j]) > iou) removed[j] = true;
+            }
+        }
+        return result;
+    }
+
+    static List<Detection> CombineFallback(EvalData detr, EvalData yolo, PipelineConfig cfg)
+    {
+        var list = new List<Detection>();
+        for (int i = 0; i < yolo.Details.Count; i++)
+        {
+            var yd = yolo.Details[i];
+            bool useDetr = yd.FP > cfg.FallbackFp || yd.FN > cfg.FallbackFn;
+            var preds = useDetr ? detr.Preds.Where(p => p.Image == i) : yolo.Preds.Where(p => p.Image == i);
+            list.AddRange(preds);
+        }
+        return list;
     }
 }

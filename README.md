@@ -106,6 +106,19 @@ sono utilizzate per calcolare le statistiche di localizzazione. Tutti i dati,
 compresi i riepiloghi aggregati, sono salvati nei file `metrics_detr.json` e
 `metrics_yolo.json`.
 
+### Configurazione
+Le soglie di confidence, il valore di NMS e la strategia di esecuzione sono
+parametrizzati nel file `config.json`. È possibile sovrascrivere ogni voce anche
+da riga di comando, ad esempio:
+
+```bash
+dotnet run --project tools/EvaluateMetrics/EvaluateMetrics.csproj \
+  --enable-yolov8 true --enable-detr true \
+  --strategy SequentialFallback \
+  --yoloConfidenceThreshold 0.60 --yoloNmsIoU 0.30 \
+  --detrConfidenceThreshold 0.30
+```
+
 ### Metriche complessive
 
 | Modello | Precision | Recall | F1 | mAP50 | mAP | FPS | Avg inf ms | Avg post ms | IoU medio |
