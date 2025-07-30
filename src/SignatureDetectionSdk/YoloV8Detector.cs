@@ -20,7 +20,8 @@ public class YoloV8Detector : IDisposable
         _session.Dispose();
     }
 
-    public float[][] Predict(string imagePath, float scoreThreshold = 0.25f)
+    public float[][] Predict(string imagePath, float scoreThreshold = 0.25f,
+        SignatureDetector.RobustParams? robust = null)
     {
         using var image = SKBitmap.Decode(imagePath);
         using var resized = image.Resize(new SKImageInfo(InputSize, InputSize), SKFilterQuality.High);
@@ -89,6 +90,27 @@ public class YoloV8Detector : IDisposable
             dets.Add(new[] { x1, y1, x2, y2, score });
         }
 
-        return dets.ToArray();
+        var arr = dets.ToArray();
+
+        if (robust is null)
+            return arr;
+
+        var p = robust.Value;
+        var list = PostProcessing.FilterByGeometry(arr, p.AreaMin, p.AreaMax,
+            p.ArMin, p.ArMax);
+        list = PostProcessing.SoftNmsDistance(list, p.Sigma, p.DistScale);
+        float dyn = 0.3f;
+        if (list.Count > 0)
+        {
+            var scoresList = list.Select(b => b[4]).ToList();
+            float perc = PostProcessing.Percentile(scoresList, p.ScorePercentile * 100f);
+            dyn = p.Alpha * perc;
+        }
+        var filtered = list.Where(b => b[4] >= dyn).ToList();
+        var nms = PostProcessing.Nms(list, 0.5f);
+        var final = filtered.Count < p.NMin ? nms : filtered;
+        if (final.Count == 0)
+            final = nms;
+        return final.ToArray();
     }
 }
