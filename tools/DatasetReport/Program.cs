@@ -79,22 +79,25 @@ foreach (var img in images)
 {
     var sw = Stopwatch.StartNew();
     float[][] preds;
+    int nBefore = 0, nThresh = 0, nNms = 0;
     if (detectorObj is YoloV8Detector y)
     {
         var p = dataset == "dataset2" ? SignatureDetector.Dataset2Params : SignatureDetector.EnsembleParams;
         preds = y.Predict(img, 0.25f, p);
     }
-   else if (detectorObj is SignatureDetector d)
+    else if (detectorObj is SignatureDetector d)
    {
         if (dataset == "dataset2")
         {
             var p = SignatureDetector.Dataset2Params;
-            preds = d.PredictSimple(img, out _, 0.6f, 0.3f, p);
+            preds = d.PredictSimpleMetrics(img, out _, out nBefore, out nThresh, out nNms,
+                0.6f, 0.3f, p);
         }
         else
         {
             var p = SignatureDetector.DetrParams;
             preds = d.Predict(img, out _, 0.1f, p);
+            nBefore = nThresh = nNms = preds.Length;
         }
     }
     else if (detectorObj is EnsembleDetector ensDet)
@@ -127,7 +130,10 @@ foreach (var img in images)
         }
         diff = (1 - best) * 100.0;
     }
-    rows.Add($"{Path.GetFileName(img)},{numLabels},{preds.Length},{diff:F2},{sw.Elapsed.TotalMilliseconds:F0}");
+    if (dataset == "dataset2")
+        rows.Add($"{Path.GetFileName(img)},{numLabels},{nBefore},{nThresh},{nNms},{preds.Length},{diff:F2},{sw.Elapsed.TotalMilliseconds:F0}");
+    else
+        rows.Add($"{Path.GetFileName(img)},{numLabels},{preds.Length},{diff:F2},{sw.Elapsed.TotalMilliseconds:F0}");
 }
 string suffix = ensemble ? "_ensemble" : useYolo ? "_yolo" : "";
 string outFile = dataset == "dataset1" ? $"dataset_report{suffix}.csv" : $"dataset_report_{dataset}{suffix}.csv";
