@@ -116,13 +116,12 @@ class Program
 
         if (detr.HasValue && yolo.HasValue)
         {
-            List<Detection> combined;
-            if (cfg.Strategy.StartsWith("Parallel", StringComparison.OrdinalIgnoreCase))
-                combined = detr.Value.Preds.Concat(yolo.Value.Preds).ToList();
-            else
-                combined = CombineFallback(detr.Value, yolo.Value, cfg);
-            var combAgg = ComputeMetrics(combined, detr.Value.GTs, new List<double>(), new List<double>(), new List<float>(), new List<float>(), new List<float>(), new List<float>(), new List<float>(), new List<int>());
-            Console.WriteLine($"Combined Precision: {combAgg.Precision:F3} Recall: {combAgg.Recall:F3} F1: {combAgg.F1:F3} mAP: {combAgg.mAP:F3}");
+            var seq = StrategyMetrics(yolo.Value, detr.Value, cfg, false,
+                out int fb, out double prim, out double sec, out double post, out double tot);
+            var par = StrategyMetrics(yolo.Value, detr.Value, cfg, true,
+                out _, out double pprim, out double psec, out double ppost, out double ptot);
+
+            Console.WriteLine($"Sequential F1: {seq.F1:F3} Parallel(intersection) F1: {par.F1:F3}");
         }
 
         if(detr.HasValue)
@@ -580,5 +579,55 @@ class Program
             list.AddRange(preds);
         }
         return list;
+    }
+
+    static List<Detection> IntersectPreds(EvalData a, EvalData b, float thr = 0.5f)
+    {
+        var list = new List<Detection>();
+        foreach (var pa in a.Preds)
+        {
+            foreach (var pb in b.Preds.Where(x => x.Image == pa.Image))
+            {
+                if (IoU(pa, pb) >= thr)
+                {
+                    list.Add(new Detection((pa.X1 + pb.X1) / 2f,
+                                           (pa.Y1 + pb.Y1) / 2f,
+                                           (pa.X2 + pb.X2) / 2f,
+                                           (pa.Y2 + pb.Y2) / 2f,
+                                           (pa.Score + pb.Score) / 2f,
+                                           pa.Image));
+                }
+            }
+        }
+        return list;
+    }
+
+    static Aggregate StrategyMetrics(EvalData yolo, EvalData detr, PipelineConfig cfg, bool parallel,
+        out int fallbackCount, out double avgPrim, out double avgSec, out double avgPost, out double avgTotal)
+    {
+        int n = yolo.Details.Count;
+        fallbackCount = 0;
+        avgPrim = yolo.InfTimes.Average();
+        avgSec = 0;
+        avgPost = 0;
+        avgTotal = 0;
+        List<Detection> preds;
+        if (parallel)
+        {
+            preds = IntersectPreds(yolo, detr, 0.5f);
+            avgPost = Enumerable.Range(0, n).Average(i => yolo.PostTimes[i] + detr.PostTimes[i]);
+            avgSec = detr.InfTimes.Average();
+            avgTotal = Enumerable.Range(0, n).Average(i => Math.Max(yolo.InfTimes[i], detr.InfTimes[i]) + yolo.PostTimes[i] + detr.PostTimes[i]);
+        }
+        else
+        {
+            preds = CombineFallback(detr, yolo, cfg);
+            var fallIdx = Enumerable.Range(0, n).Where(i => yolo.Details[i].FP > cfg.FallbackFp || yolo.Details[i].FN > cfg.FallbackFn).ToArray();
+            fallbackCount = fallIdx.Length;
+            avgSec = fallIdx.Length > 0 ? fallIdx.Select(i => detr.InfTimes[i]).Average() : 0;
+            avgPost = Enumerable.Range(0, n).Average(i => yolo.PostTimes[i] + (fallIdx.Contains(i) ? detr.PostTimes[i] : 0));
+            avgTotal = Enumerable.Range(0, n).Average(i => yolo.InfTimes[i] + yolo.PostTimes[i] + (fallIdx.Contains(i) ? detr.InfTimes[i] + detr.PostTimes[i] : 0));
+        }
+        return ComputeMetrics(preds, detr.GTs, new List<double>(), new List<double>(), new List<float>(), new List<float>(), new List<float>(), new List<float>(), new List<float>(), new List<int>());
     }
 }

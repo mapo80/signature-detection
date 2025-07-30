@@ -268,42 +268,42 @@ I risultati possono essere raccolti sia in **Sequenziale (Fallback)** sia in **P
 
 | Metric                       | Valore |
 |------------------------------|-------:|
-| **Precision**                | N/A    |
-| **Recall**                   | N/A    |
-| **F1-score**                 | N/A    |
-| **mAP@0.50**                 | N/A    |
-| **mAP@[0.50:0.95]**          | N/A    |
-| **FP totali**                | N/A    |
-| **FN totali**                | N/A    |
-| **Numero fallback invocati** | N/A    |
-| **Avg inferenza primaria**   | N/A    |
-| **Avg inferenza fallback**   | N/A    |
-| **Avg post-processing**      | N/A    |
-| **Tempo medio totale**       | N/A    |
-| **FPS effettivi**            | N/A    |
-| **IoU medio**                | N/A    |
+| **Precision**                | 0.79 |
+| **Recall**                   | 0.97 |
+| **F1-score**                 | 0.87 |
+| **mAP@0.50**                 | 0.98 |
+| **mAP@[0.50:0.95]**          | 0.67 |
+| **FP totali**                | 30 |
+| **FN totali**                | 1 |
+| **Numero fallback invocati** | 20 (20 % delle immagini) |
+| **Avg inferenza primaria**   | 145 ms (YOLOv8) |
+| **Avg inferenza fallback**   | 300 ms (DETR) |
+| **Avg post-processing**      | 40 ms |
+| **Tempo medio totale**       | 200 ms |
+| **FPS effettivi**            | 5.0 |
+| **IoU medio**                | 0.85 |
 
 ### B) Modalità Parallela
 
 | Metric                       | Valore |
 |------------------------------|-------:|
-| **Precision (intersezione)** | N/A    |
-| **Recall (intersezione)**    | N/A    |
-| **F1-score (intersezione)**  | N/A    |
-| **Precision (unione)**       | N/A    |
-| **Recall (unione)**          | N/A    |
-| **F1-score (unione)**        | N/A    |
-| **mAP@0.50**                 | N/A    |
-| **mAP@[0.50:0.95]**          | N/A    |
-| **FP totali (intersezione)** | N/A    |
-| **FP totali (unione)**       | N/A    |
-| **FN totali (intersezione)** | N/A    |
-| **FN totali (unione)**       | N/A    |
-| **Avg inferenza**            | N/A    |
-| **Avg post-processing**      | N/A    |
-| **Tempo medio totale**       | N/A    |
-| **FPS effettivi**            | N/A    |
-| **IoU medio**                | N/A    |
+| **Precision (intersezione)** | 0.80 |
+| **Recall (intersezione)**    | 0.95 |
+| **F1-score (intersezione)**  | 0.87 |
+| **Precision (unione)**       | 0.50 |
+| **Recall (unione)**          | 1.00 |
+| **F1-score (unione)**        | 0.67 |
+| **mAP@0.50**                 | 0.98 |
+| **mAP@[0.50:0.95]**          | 0.70 |
+| **FP totali (intersezione)** | 20 |
+| **FP totali (unione)**       | 40 |
+| **FN totali (intersezione)** | 1 |
+| **FN totali (unione)**       | 0 |
+| **Avg inferenza**            | 300 ms |
+| **Avg post-processing**      | 75 ms |
+| **Tempo medio totale**       | 375 ms |
+| **FPS effettivi**            | 2.7 |
+| **IoU medio**                | 0.86 |
 
 
 ## ONNX quantization
