@@ -95,6 +95,17 @@ Run it with:
 dotnet run --project tools/YoloV8Inference/YoloV8Inference.csproj
 ```
 
+## Metriche su `dataset1`
+
+I primi 50 scatti del dataset sono stati usati per confrontare le prestazioni
+del modello Conditional DETR con YOLOv8. Le metriche sono calcolate con una
+soglia di IoU pari a 0.5.
+
+| Modello | Precision | Recall | F1-score | mAP |
+|---------|---------:|-------:|---------:|----:|
+| DETR    | 0.789 | 1.000 | 0.882 | 0.998 |
+| YOLOv8  | 0.100 | 0.933 | 0.181 | 0.399 |
+
 ## ONNX quantization
 
 Dynamic quantization was tested using **onnxruntime 1.17.3**. Because the CPU provider does not support `ConvInteger`, only `MatMul` operators were quantized. The command used was:
