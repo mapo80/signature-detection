@@ -110,8 +110,8 @@ compresi i riepiloghi aggregati, sono salvati nei file `metrics_detr.json` e
 
 | Modello | Precision | Recall | F1 | mAP50 | mAP | FPS | Avg ms | IoU medio |
 |---------|---------:|------:|----:|------:|----:|----:|-------:|----------:|
-| DETR    | 0.789 | 1.000 | 0.882 | 0.998 | 0.687 | 3.6 | 277.8 | 0.848 |
-| YOLOv8  | 0.100 | 0.933 | 0.181 | 0.399 | 0.317 | 7.1 | 140.3 | 0.850 |
+| DETR    | 0.789 | 1.000 | 0.882 | 0.998 | 0.687 | 3.3 | 299.7 | 0.848 |
+| YOLOv8  | 0.100 | 0.933 | 0.181 | 0.399 | 0.317 | 6.9 | 144.7 | 0.850 |
 
 
 ### Istogrammi e categorie di metriche
@@ -151,6 +151,62 @@ AAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAA
 ACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb/2wBDAAMCAgMCAgMDAwMEAwME
 BQgFBQQEBQoHBwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT/2wBDAQME
 ```
+
+### Metodologia di Valutazione
+
+- I box predetti vengono associati alle annotazioni utilizzando una soglia di **IoU≥0.5**. I match corretti sono conteggiati come TP, le rimanenti predizioni come FP e le etichette non abbinate come FN.
+- Prima di misurare i tempi viene eseguito un breve *warm‑up* e le prime due inference vengono scartate per ridurre l'impatto di caching e JIT.
+- Durante l'inferenza sono attive le soglie di confidence previste dai modelli e il Non‑Max Suppression standard di YOLOv8.
+
+### Dettaglio delle Metriche
+
+#### 5.1 Tempi
+
+| Modello | Avg ms | Median ms | Std ms | P50 | P90 | P99 |
+|---------|-------:|----------:|-------:|----:|----:|----:|
+| DETR    | 299.7 | 273.2 | 96.8 | 273.1 | 428.2 | 847.9 |
+| YOLOv8  | 144.7 | 132.3 | 34.6 | 132.2 | 167.7 | 287.1 |
+
+Gli istogrammi dei tempi sono disponibili in `histograms/detr_time.base64` e `histograms/yolo_time.base64`.
+
+#### 5.2 Detection
+
+| Modello | Precision | Recall | F1 | mAP50 | mAP@[0.50:0.05:0.95] |
+|---------|---------:|------:|----:|------:|---------------------:|
+| DETR    | 0.789 | 1.000 | 0.882 | 0.998 | 0.687 |
+| YOLOv8  | 0.100 | 0.933 | 0.181 | 0.399 | 0.317 |
+
+Le curve Precision–Recall e gli istogrammi delle IoU sono salvati come stringhe base64 nella cartella `histograms`.
+
+#### 5.3 Localization
+
+- **IoU medio**: 0.848 (DETR) e 0.850 (YOLOv8)
+- **IoU>0.50/0.75/0.90**: 100/89/33 % per DETR, 100/88/31 % per YOLOv8
+- **Center error medio**: 3.0 px (DETR) e 3.4 px (YOLOv8)
+- **Corner error medio**: 10.0 px (DETR) e 10.8 px (YOLOv8)
+
+#### 5.4 Count Boxes
+
+Per ogni immagine vengono registrati il numero di box predette e quelle reali; la distribuzione è consultabile nei file JSON delle metriche. In media DETR genera una box per immagine mentre YOLOv8 tende a sovra-predire generando molti falsi positivi.
+
+#### 5.5 Throughput & Risorse
+
+- **FPS**: ~3.3 per DETR e ~6.9 per YOLOv8.
+- I tempi mostrano alcune immagini particolarmente lente (outlier), riportate nei percentili 90 e 99.
+
+### Analisi di Post-processing
+
+- Per ogni immagine viene conteggiato il numero di predizioni e confrontato con le ground‑truth.
+- Le immagini con più falsi positivi o falsi negativi sono elencate nei file JSON.
+- È possibile ridurre i FP aumentando la soglia di confidence (0.3–0.5) o regolando l'NMS.
+
+### Esempi Visivi
+
+Le stringhe base64 sopra riportate mostrano due esempi di immagini annotate. Nel primo caso è visibile un *false positive* del modello YOLOv8, mentre il DETR centra correttamente la firma.
+
+### Struttura dei File di Output
+
+I file `metrics_detr.json` e `metrics_yolo.json` contengono l'oggetto `metrics` con tutte le statistiche aggregate, oltre agli array `times` e `ious` utilizzati per generare gli istogrammi. Ogni campo è espresso nel sistema internazionale (millisecondi, pixel, proporzioni).
 
 
 ## ONNX quantization
