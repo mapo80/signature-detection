@@ -260,6 +260,51 @@ In conclusione, per massima qualità (batch, revisione umana) è preferibile DET
 
 I file `metrics_detr.json` e `metrics_yolo.json` contengono l'oggetto `metrics` con tutte le statistiche aggregate, oltre agli array `times` e `ious` utilizzati per generare gli istogrammi. Ogni campo è espresso nel sistema internazionale (millisecondi, pixel, proporzioni).
 
+## Confronto Modalità di Esecuzione
+
+I risultati possono essere raccolti sia in **Sequenziale (Fallback)** sia in **Parallelo**. A causa di limitazioni dell'ambiente di test, i valori riportati qui sono indicativi.
+
+### A) Modalità Sequenziale (Fallback)
+
+| Metric                       | Valore |
+|------------------------------|-------:|
+| **Precision**                | N/A    |
+| **Recall**                   | N/A    |
+| **F1-score**                 | N/A    |
+| **mAP@0.50**                 | N/A    |
+| **mAP@[0.50:0.95]**          | N/A    |
+| **FP totali**                | N/A    |
+| **FN totali**                | N/A    |
+| **Numero fallback invocati** | N/A    |
+| **Avg inferenza primaria**   | N/A    |
+| **Avg inferenza fallback**   | N/A    |
+| **Avg post-processing**      | N/A    |
+| **Tempo medio totale**       | N/A    |
+| **FPS effettivi**            | N/A    |
+| **IoU medio**                | N/A    |
+
+### B) Modalità Parallela
+
+| Metric                       | Valore |
+|------------------------------|-------:|
+| **Precision (intersezione)** | N/A    |
+| **Recall (intersezione)**    | N/A    |
+| **F1-score (intersezione)**  | N/A    |
+| **Precision (unione)**       | N/A    |
+| **Recall (unione)**          | N/A    |
+| **F1-score (unione)**        | N/A    |
+| **mAP@0.50**                 | N/A    |
+| **mAP@[0.50:0.95]**          | N/A    |
+| **FP totali (intersezione)** | N/A    |
+| **FP totali (unione)**       | N/A    |
+| **FN totali (intersezione)** | N/A    |
+| **FN totali (unione)**       | N/A    |
+| **Avg inferenza**            | N/A    |
+| **Avg post-processing**      | N/A    |
+| **Tempo medio totale**       | N/A    |
+| **FPS effettivi**            | N/A    |
+| **IoU medio**                | N/A    |
+
 
 ## ONNX quantization
 
