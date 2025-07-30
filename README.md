@@ -130,10 +130,10 @@ dotnet run --project tools/EvaluateMetrics/EvaluateMetrics.csproj \
 ### Istogrammi e categorie di metriche
 Le figure generate dallo script Python sono salvate in formato base64 nella cartella `histograms`:
 
-- `histograms/detr_time.base64`
-- `histograms/detr_iou.base64`
-- `histograms/yolo_time.base64`
-- `histograms/yolo_iou.base64`
+- `histograms/detr_time.png.base64`
+- `histograms/detr_iou.png.base64`
+- `histograms/yolo_time.png.base64`
+- `histograms/yolo_iou.png.base64`
 
 Le metriche sono raggruppate in cinque categorie: **Tempi**, **Detection**, **Localization**, **Count** e **Post-processing**. Ogni gruppo è riportato nei file JSON con statistiche di media, deviazione standard e percentili. Qui di seguito alcuni esempi di immagini annotate.
 
@@ -158,7 +158,7 @@ L'immagine base64 è salvata in `histograms/yolo_example.png.base64`.
 | DETR    | 299.7 | 273.2 | 96.8 | 273.1 | 428.2 | 847.9 |
 | YOLOv8  | 144.7 | 132.3 | 34.6 | 132.2 | 167.7 | 287.1 |
 
-Gli istogrammi dei tempi sono disponibili in `histograms/detr_time.base64` e `histograms/yolo_time.base64`.
+Gli istogrammi dei tempi sono disponibili in `histograms/detr_time.png.base64` e `histograms/yolo_time.png.base64`.
 
 #### 5.2 Detection
 

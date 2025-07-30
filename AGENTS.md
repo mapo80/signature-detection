@@ -21,6 +21,12 @@ Run the unit tests with:
 dotnet test
 ```
 
+Build the evaluation tool before running tests:
+
+```bash
+dotnet build tools/EvaluateMetrics/EvaluateMetrics.csproj -c Release
+```
+
 The dataset used in the tests is stored in `dataset/` and follows the
 YOLOv8 format.
 
