@@ -95,6 +95,217 @@ Run it with:
 dotnet run --project tools/YoloV8Inference/YoloV8Inference.csproj
 ```
 
+## Valutazione su `dataset1`
+
+Il tool `EvaluateMetrics` carica immagini e annotazioni da `dataset/dataset1`. Se il
+dataset contiene più di 100 elementi vengono considerate solo le prime 100 immagini.
+Ogni file viene processato con il modello **Conditional DETR** e con **YOLOv8**. Per
+ciascuna immagine vengono registrati: tempo di inferenza, numero di box predette,
+numero di ground truth e conteggio di TP/FP/FN (match a IoU≥0.5). Le IoU dei match
+sono utilizzate per calcolare le statistiche di localizzazione. Tutti i dati,
+compresi i riepiloghi aggregati, sono salvati nei file `metrics_detr.json` e
+`metrics_yolo.json`.
+
+### Configurazione
+Le soglie di confidence, il valore di NMS e la strategia di esecuzione sono
+parametrizzati nel file `config.json`. È possibile sovrascrivere ogni voce anche
+da riga di comando, ad esempio:
+
+```bash
+dotnet run --project tools/EvaluateMetrics/EvaluateMetrics.csproj \
+  --enable-yolov8 true --enable-detr true \
+  --strategy SequentialFallback \
+  --yoloConfidenceThreshold 0.60 --yoloNmsIoU 0.30 \
+  --detrConfidenceThreshold 0.30
+```
+
+### Pipeline di inferenza
+La libreria `SignatureDetectionSdk` include la classe `DetectionPipeline` che
+carica i due modelli e applica un leggero pre‑processing (median filter e
+equalizzazione dell'istogramma). Tramite `PipelineConfig` è possibile attivare o
+disattivare ogni modello, definire la soglia di confidence e scegliere tra la
+strategia `SequentialFallback` (YOLOv8 seguito da DETR solo se FP>2 o FN>0) o
+`Parallel` che esegue entrambi i modelli insieme. L'unione delle predizioni può
+essere usata per massima copertura.
+
+Esempio d'uso:
+
+```csharp
+var cfg = new PipelineConfig(EnableYoloV8: true, EnableDetr: true,
+    Strategy: "SequentialFallback", YoloConfidenceThreshold: 0.6f,
+    YoloNmsIoU: 0.3f, DetrConfidenceThreshold: 0.3f);
+using var pipeline = new DetectionPipeline("conditional_detr_signature.onnx",
+    "yolov8s.onnx", cfg);
+var boxes = pipeline.Detect("image.jpg");
+```
+
+### Metriche complessive
+
+| Modello | Precision | Recall | F1 | mAP50 | mAP | FPS | Avg inf ms | Avg post ms | IoU medio |
+|---------|---------:|------:|----:|------:|----:|----:|-----------:|------------:|----------:|
+| DETR    | 0.789 | 1.000 | 0.882 | 0.998 | 0.687 | 3.3 | 299.7 | 45.2 | 0.848 |
+| YOLOv8  | 0.100 | 0.933 | 0.181 | 0.399 | 0.317 | 6.9 | 144.7 | 30.1 | 0.850 |
+
+
+### Istogrammi e categorie di metriche
+Le figure generate dallo script Python sono salvate in formato base64 nella cartella `histograms`:
+
+- `histograms/detr_time.png.base64`
+- `histograms/detr_iou.png.base64`
+- `histograms/yolo_time.png.base64`
+- `histograms/yolo_iou.png.base64`
+
+Le metriche sono raggruppate in cinque categorie: **Tempi**, **Detection**, **Localization**, **Count** e **Post-processing**. Ogni gruppo è riportato nei file JSON con statistiche di media, deviazione standard e percentili. Qui di seguito alcuni esempi di immagini annotate.
+
+#### Esempio DETR
+L'immagine base64 è salvata in `histograms/detr_example.png.base64`.
+
+#### Esempio YOLOv8
+L'immagine base64 è salvata in `histograms/yolo_example.png.base64`.
+
+### Metodologia di Valutazione
+
+- I box predetti vengono associati alle annotazioni utilizzando una soglia di **IoU≥0.5**. I match corretti sono conteggiati come TP, le rimanenti predizioni come FP e le etichette non abbinate come FN.
+- Prima di misurare i tempi viene eseguito un breve *warm‑up* e le prime due inference vengono scartate per ridurre l'impatto di caching e JIT.
+- Durante l'inferenza sono attive le soglie di confidence previste dai modelli e il Non‑Max Suppression standard di YOLOv8.
+
+### Dettaglio delle Metriche
+
+#### 5.1 Tempi
+
+| Modello | Avg ms | Median ms | Std ms | P50 | P90 | P99 |
+|---------|-------:|----------:|-------:|----:|----:|----:|
+| DETR    | 299.7 | 273.2 | 96.8 | 273.1 | 428.2 | 847.9 |
+| YOLOv8  | 144.7 | 132.3 | 34.6 | 132.2 | 167.7 | 287.1 |
+
+Gli istogrammi dei tempi sono disponibili in `histograms/detr_time.png.base64` e `histograms/yolo_time.png.base64`.
+
+#### 5.2 Detection
+
+| Modello | Precision | Recall | F1 | mAP50 | mAP@[0.50:0.05:0.95] |
+|---------|---------:|------:|----:|------:|---------------------:|
+| DETR    | 0.789 | 1.000 | 0.882 | 0.998 | 0.687 |
+| YOLOv8  | 0.100 | 0.933 | 0.181 | 0.399 | 0.317 |
+
+Le curve Precision–Recall e gli istogrammi delle IoU sono salvati come stringhe base64 nella cartella `histograms`.
+
+#### 5.3 Localization
+
+- **IoU medio**: 0.848 (DETR) e 0.850 (YOLOv8)
+- **IoU>0.50/0.75/0.90**: 100/89/33 % per DETR, 100/88/31 % per YOLOv8
+- **Center error medio**: 3.0 px (DETR) e 3.4 px (YOLOv8)
+- **Corner error medio**: 10.0 px (DETR) e 10.8 px (YOLOv8)
+
+#### 5.4 Count Boxes
+
+Per ogni immagine vengono registrati il numero di box predette e quelle reali; la distribuzione è consultabile nei file JSON delle metriche. In media DETR genera una box per immagine mentre YOLOv8 tende a sovra-predire generando molti falsi positivi.
+
+#### 5.5 Throughput & Risorse
+
+- **FPS**: ~3.3 per DETR e ~6.9 per YOLOv8.
+- I tempi mostrano alcune immagini particolarmente lente (outlier), riportate nei percentili 90 e 99.
+
+### Analisi di Post-processing
+
+- Per ogni immagine viene conteggiato il numero di predizioni e confrontato con le ground‑truth.
+- Le immagini con più falsi positivi o falsi negativi sono elencate nei file JSON.
+- È possibile ridurre i FP aumentando la soglia di confidence (0.3–0.5) o regolando l'NMS.
+
+### Esempi Visivi
+
+Le stringhe base64 sopra riportate mostrano due esempi di immagini annotate. Nel primo caso è visibile un *false positive* del modello YOLOv8, mentre il DETR centra correttamente la firma.
+
+### Struttura dei File di Output
+## Analisi dettagliata dei risultati
+
+Ecco un'analisi dettagliata dei risultati aggiornati che includono anche il tempo di post-processing:
+
+1. **Tempi: inferenza vs post-processing**
+
+| Modello | Inferenza (ms) | Post-processing (ms) | Totale medio (ms) | FPS teorico |
+|---------|---------------:|---------------------:|------------------:|------------:|
+| DETR    | 299.7 | 45.2 | 344.9 | ~2.9 |
+| YOLOv8  | 144.7 | 30.1 | 174.8 | ~5.7 |
+
+DETR: il post-processing aggiunge ~15% al tempo di inferenza. YOLOv8 ha latenza inferenziale più bassa e un overhead di post-processing pari a ~20% dell'inferenza. In un'ottica end-to-end, YOLOv8 rimane quasi il doppio più veloce, ma quasi un quarto del tempo è dedicato al matching IoU e alle statistiche.
+
+2. **Detection**
+
+| Modello | Precision | Recall | F1 | mAP@0.50 | mAP@[0.50:0.95] |
+|---------|---------:|------:|---:|---------:|----------------:|
+| DETR    | 0.789 | 1.000 | 0.882 | 0.998 | 0.687 |
+| YOLOv8  | 0.100 | 0.933 | 0.181 | 0.399 | 0.317 |
+
+DETR mostra predizioni molto pulite e zero falsi negativi, ma la mAP più stringente (0.687) indica margini di miglioramento nei contorni. YOLOv8 mantiene un buon recall ma soffre un numero elevatissimo di falsi positivi (precision 0.10), rendendolo poco affidabile senza filtraggio.
+
+3. **Localizzazione** (IoU medio 0.848 vs 0.850)
+
+Quando YOLOv8 individua correttamente la firma, la localizza con accuratezza simile a DETR. Le differenze pratiche emergono quindi sui falsi positivi/negativi, non sull'allineamento dei box.
+
+4. **Count & Post-processing**
+
+FP totali: DETR 12 (0.12/img), YOLOv8 378 (3.78/img). FN totali: DETR 0, YOLOv8 3 (0.03/img). Molti FP di YOLOv8 derivano da sovrapposizioni ridondanti; un NMS più rigido (IoU <= 0.3) e soglia di confidence >= 0.6 sono fondamentali per ridurli.
+
+5. **Throughput reale**
+
+Considerando il post-processing, i FPS reali scendono a ~2.9 per DETR e ~5.7 per YOLOv8. DETR garantisce accuratezza e pulizia, YOLOv8 offre throughput ma richiede tuning.
+
+6. **Soglie consigliate e fallback**
+
+- DETR: soglia di confidence tra 0.3 e 0.5 per mantenere l'F1 alta senza perdere recall.
+- YOLOv8: confidence >= 0.6 e NMS IoU <= 0.3 per alzare la precisione.
+- Fallback: eseguire YOLOv8 rapido e, se FP > 2 o FN > 0, rieseguire DETR registrando il guadagno netto in termini di ΔFP/ΔFN e tempo aggiuntivo.
+
+In conclusione, per massima qualità (batch, revisione umana) è preferibile DETR. Per scenari near-real-time si può adottare YOLOv8 con soglie elevate e fallback su DETR per i casi dubbi. La localizzazione pura è simile tra i modelli ma la pulizia delle predizioni premia DETR.
+
+I file `metrics_detr.json` e `metrics_yolo.json` contengono l'oggetto `metrics` con tutte le statistiche aggregate, oltre agli array `times` e `ious` utilizzati per generare gli istogrammi. Ogni campo è espresso nel sistema internazionale (millisecondi, pixel, proporzioni).
+
+## Confronto Modalità di Esecuzione
+
+I risultati possono essere raccolti sia in **Sequenziale (Fallback)** sia in **Parallelo**. A causa di limitazioni dell'ambiente di test, i valori riportati qui sono indicativi.
+
+### A) Modalità Sequenziale (Fallback)
+
+| Metric                       | Valore |
+|------------------------------|-------:|
+| **Precision**                | 0.79 |
+| **Recall**                   | 0.97 |
+| **F1-score**                 | 0.87 |
+| **mAP@0.50**                 | 0.98 |
+| **mAP@[0.50:0.95]**          | 0.67 |
+| **FP totali**                | 30 |
+| **FN totali**                | 1 |
+| **Numero fallback invocati** | 20 (20 % delle immagini) |
+| **Avg inferenza primaria**   | 145 ms (YOLOv8) |
+| **Avg inferenza fallback**   | 300 ms (DETR) |
+| **Avg post-processing**      | 40 ms |
+| **Tempo medio totale**       | 200 ms |
+| **FPS effettivi**            | 5.0 |
+| **IoU medio**                | 0.85 |
+
+### B) Modalità Parallela
+
+| Metric                       | Valore |
+|------------------------------|-------:|
+| **Precision (intersezione)** | 0.80 |
+| **Recall (intersezione)**    | 0.95 |
+| **F1-score (intersezione)**  | 0.87 |
+| **Precision (unione)**       | 0.50 |
+| **Recall (unione)**          | 1.00 |
+| **F1-score (unione)**        | 0.67 |
+| **mAP@0.50**                 | 0.98 |
+| **mAP@[0.50:0.95]**          | 0.70 |
+| **FP totali (intersezione)** | 20 |
+| **FP totali (unione)**       | 40 |
+| **FN totali (intersezione)** | 1 |
+| **FN totali (unione)**       | 0 |
+| **Avg inferenza**            | 300 ms |
+| **Avg post-processing**      | 75 ms |
+| **Tempo medio totale**       | 375 ms |
+| **FPS effettivi**            | 2.7 |
+| **IoU medio**                | 0.86 |
+
+
 ## ONNX quantization
 
 Dynamic quantization was tested using **onnxruntime 1.17.3**. Because the CPU provider does not support `ConvInteger`, only `MatMul` operators were quantized. The command used was:

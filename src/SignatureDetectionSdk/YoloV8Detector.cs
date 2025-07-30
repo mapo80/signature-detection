@@ -23,6 +23,11 @@ public class YoloV8Detector : IDisposable
     public float[][] Predict(string imagePath, float scoreThreshold = 0.25f)
     {
         using var image = SKBitmap.Decode(imagePath);
+        return Predict(image, scoreThreshold);
+    }
+
+    public float[][] Predict(SKBitmap image, float scoreThreshold = 0.25f)
+    {
         using var resized = image.Resize(new SKImageInfo(InputSize, InputSize), SKFilterQuality.High);
         var tensor = new DenseTensor<float>(new[] { 1, 3, InputSize, InputSize });
 

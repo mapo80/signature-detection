@@ -33,7 +33,7 @@ public class BoundingBoxTests
     {
         EnsureModel();
         using var detector = new SignatureDetector(OnnxPath);
-        var detections = detector.Predict(imagePath, 0.1f);
+        var detections = detector.Predict(imagePath, 0.0f);
         var dataset = Environment.GetEnvironmentVariable("DATASET_SUBDIR") ?? "dataset1";
         var labelPath = Path.Combine(Root, "dataset", dataset, "labels",
             Path.GetFileNameWithoutExtension(imagePath) + ".txt");
