@@ -183,6 +183,47 @@ Per ogni immagine vengono registrati il numero di box predette e quelle reali; l
 Le stringhe base64 sopra riportate mostrano due esempi di immagini annotate. Nel primo caso è visibile un *false positive* del modello YOLOv8, mentre il DETR centra correttamente la firma.
 
 ### Struttura dei File di Output
+## Analisi dettagliata dei risultati
+
+Ecco un'analisi dettagliata dei risultati aggiornati che includono anche il tempo di post-processing:
+
+1. **Tempi: inferenza vs post-processing**
+
+| Modello | Inferenza (ms) | Post-processing (ms) | Totale medio (ms) | FPS teorico |
+|---------|---------------:|---------------------:|------------------:|------------:|
+| DETR    | 299.7 | 45.2 | 344.9 | ~2.9 |
+| YOLOv8  | 144.7 | 30.1 | 174.8 | ~5.7 |
+
+DETR: il post-processing aggiunge ~15% al tempo di inferenza. YOLOv8 ha latenza inferenziale più bassa e un overhead di post-processing pari a ~20% dell'inferenza. In un'ottica end-to-end, YOLOv8 rimane quasi il doppio più veloce, ma quasi un quarto del tempo è dedicato al matching IoU e alle statistiche.
+
+2. **Detection**
+
+| Modello | Precision | Recall | F1 | mAP@0.50 | mAP@[0.50:0.95] |
+|---------|---------:|------:|---:|---------:|----------------:|
+| DETR    | 0.789 | 1.000 | 0.882 | 0.998 | 0.687 |
+| YOLOv8  | 0.100 | 0.933 | 0.181 | 0.399 | 0.317 |
+
+DETR mostra predizioni molto pulite e zero falsi negativi, ma la mAP più stringente (0.687) indica margini di miglioramento nei contorni. YOLOv8 mantiene un buon recall ma soffre un numero elevatissimo di falsi positivi (precision 0.10), rendendolo poco affidabile senza filtraggio.
+
+3. **Localizzazione** (IoU medio 0.848 vs 0.850)
+
+Quando YOLOv8 individua correttamente la firma, la localizza con accuratezza simile a DETR. Le differenze pratiche emergono quindi sui falsi positivi/negativi, non sull'allineamento dei box.
+
+4. **Count & Post-processing**
+
+FP totali: DETR 12 (0.12/img), YOLOv8 378 (3.78/img). FN totali: DETR 0, YOLOv8 3 (0.03/img). Molti FP di YOLOv8 derivano da sovrapposizioni ridondanti; un NMS più rigido (IoU <= 0.3) e soglia di confidence >= 0.6 sono fondamentali per ridurli.
+
+5. **Throughput reale**
+
+Considerando il post-processing, i FPS reali scendono a ~2.9 per DETR e ~5.7 per YOLOv8. DETR garantisce accuratezza e pulizia, YOLOv8 offre throughput ma richiede tuning.
+
+6. **Soglie consigliate e fallback**
+
+- DETR: soglia di confidence tra 0.3 e 0.5 per mantenere l'F1 alta senza perdere recall.
+- YOLOv8: confidence >= 0.6 e NMS IoU <= 0.3 per alzare la precisione.
+- Fallback: eseguire YOLOv8 rapido e, se FP > 2 o FN > 0, rieseguire DETR registrando il guadagno netto in termini di ΔFP/ΔFN e tempo aggiuntivo.
+
+In conclusione, per massima qualità (batch, revisione umana) è preferibile DETR. Per scenari near-real-time si può adottare YOLOv8 con soglie elevate e fallback su DETR per i casi dubbi. La localizzazione pura è simile tra i modelli ma la pulizia delle predizioni premia DETR.
 
 I file `metrics_detr.json` e `metrics_yolo.json` contengono l'oggetto `metrics` con tutte le statistiche aggregate, oltre agli array `times` e `ious` utilizzati per generare gli istogrammi. Ogni campo è espresso nel sistema internazionale (millisecondi, pixel, proporzioni).
 
