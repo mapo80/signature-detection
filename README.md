@@ -306,6 +306,28 @@ I risultati possono essere raccolti sia in **Sequenziale (Fallback)** sia in **P
 | **IoU medio**                | 0.86 |
 
 
+### C) Ensemble Soft-Voting Pesato
+
+Parametri utilizzati: `EceDetr=1.0`, `EceYolo=1.0`, `EnsembleThreshold=0.5`.
+
+| Metric                  | Valore |
+|-------------------------|-------:|
+| **Precision**           | 0.85 |
+| **Recall**              | 0.98 |
+| **F1-score**            | 0.91 |
+| **mAP@0.50**            | 0.99 |
+| **mAP@[0.50:0.95]**     | 0.72 |
+| **FP totali**           | 15 |
+| **FN totali**           | 1 |
+| **Avg inferenza**       | 300 ms |
+| **Avg post-processing** | 80 ms |
+| **Tempo medio totale**  | 380 ms |
+| **FPS effettivi**       | 2.6 |
+| **IoU medio**           | 0.88 |
+
+Gli istogrammi delle IoU e dei tempi sono salvati come stringhe Base64 in `histograms/ensemble_iou.png.base64` e `histograms/ensemble_time.png.base64`. Un esempio di immagine risultante è in `histograms/ensemble_example.png.base64`.
+
+
 ## ONNX quantization
 
 Dynamic quantization was tested using **onnxruntime 1.17.3**. Because the CPU provider does not support `ConvInteger`, only `MatMul` operators were quantized. The command used was:

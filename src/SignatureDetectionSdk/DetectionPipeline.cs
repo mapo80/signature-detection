@@ -13,7 +13,10 @@ public record PipelineConfig(
     float YoloNmsIoU = 0.3f,
     float DetrConfidenceThreshold = 0.3f,
     int FallbackFp = 2,
-    int FallbackFn = 0
+    int FallbackFn = 0,
+    float EceDetr = 1.0f,
+    float EceYolo = 1.0f,
+    float EnsembleThreshold = 0.5f
 );
 
 public class DetectionPipeline : IDisposable
@@ -49,22 +52,24 @@ public class DetectionPipeline : IDisposable
             detrPreds.AddRange(_detr.Predict(pre, _config.DetrConfidenceThreshold));
 
         List<float[]> final = new();
-        if (_config.EnableYoloV8 && _config.EnableDetr)
+        bool both = _config.EnableYoloV8 && _config.EnableDetr;
+        bool useEnsemble = both && (_config.Strategy.Equals("Ensemble", StringComparison.OrdinalIgnoreCase)
+            || _config.Strategy.StartsWith("Parallel", StringComparison.OrdinalIgnoreCase));
+
+        if (useEnsemble)
         {
-            if (_config.Strategy.StartsWith("Parallel", StringComparison.OrdinalIgnoreCase))
+            final.AddRange(SoftVotingEnsemble.Combine(yoloPreds, detrPreds,
+                _config.EceYolo, _config.EceDetr, _config.EnsembleThreshold));
+        }
+        else if (both)
+        {
+            var primary = yoloPreds;
+            var secondary = detrPreds;
+            final.AddRange(primary);
+            if (groundTruth != null && (CountFp(primary, groundTruth) > _config.FallbackFp ||
+                                       CountFn(primary, groundTruth) > _config.FallbackFn))
             {
-                final.AddRange(yoloPreds);
-                final.AddRange(detrPreds);
-            }
-            else // SequentialFallback
-            {
-                var primary = yoloPreds;
-                var secondary = detrPreds;
-                final.AddRange(primary);
-                if (groundTruth != null && (CountFp(primary, groundTruth) > _config.FallbackFp || CountFn(primary, groundTruth) > _config.FallbackFn))
-                {
-                    final.AddRange(secondary);
-                }
+                final.AddRange(secondary);
             }
         }
         else if (_config.EnableYoloV8)
