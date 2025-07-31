@@ -373,6 +373,25 @@ Gli istogrammi delle IoU e dei tempi sono salvati come stringhe Base64 in `histo
 | **Recall finale v2**                           | Recall finale dopo filtro + ROI-fallback v2                                  | 0.88 |
 | **F1-score finale v2**                         | F1 finale                                                                    | 0.93 |
 
+### Shape-Prior + ROI-Fallback v2 (Finale)
+
+| Indicatore                                      | Descrizione                                           | Valore |
+|-------------------------------------------------|-------------------------------------------------------|-------:|
+| **ShapeMinAspect / ShapeMaxAspect (actual)**    | Bound adattivi calcolati sul dataset                  | 1.32 / 6.00 |
+| **UncertainQuantile**                           | Quota di box inviata a ROI (top-5% incerte)           | 0.05 |
+| **Precision post Shape-Prior v2**               | Precisione subito dopo il filtro di forma             | 0.86 |
+| **Recall post Shape-Prior v2**                  | Recall subito dopo il filtro di forma                 | 0.81 |
+| **ROI batch totali**                            | Numero di batch inviati a DETR sui crop               | 81 |
+| **ROI batch medie/crop**                        | Media crop per batch                                   | 1.00 |
+| **Lat. DETR ROI (FP16)**                        | Latenza media (ms) per batch ROI                      | 243 ms |
+| **Precision finale v2**                         | Precisione dopo filtro e ROI-fallback                 | 0.67 |
+| **Recall finale v2**                            | Recall dopo filtro e ROI-fallback                     | 0.08 |
+| **F1 finale v2**                                | F1 dopo filtro e ROI-fallback                         | 0.14 |
+| **mAP@0.50 v2**                                 | mAP a IoU 0.50 con pipeline completa                  | 0.05 |
+| **FPS effettivi v2**                            | 1 / Tempo medio di esecuzione                         | 0.83 |
+
+L'istogramma dei tempi della pipeline v2  salvato in `histograms/shapev2_time.png.base64`.
+
 ## ONNX quantization
 
 Dynamic quantization was tested using **onnxruntime 1.17.3**. Because the CPU provider does not support `ConvInteger`, only `MatMul` operators were quantized. The command used was:

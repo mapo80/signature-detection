@@ -42,3 +42,4 @@ The results will be written to `dataset_report.csv`.
 - Tutti i file binari generati devono essere serializzati in Base64 prima del commit.
 - Il README.md deve contenere il report dettagliato e aggiornato automaticamente.
 - Le immagini e gli istogrammi dell'ensemble devono essere salvati come `*.png.base64`.
+- L'istogramma della pipeline Shape-Prior v2 è in `histograms/shapev2_time.png.base64`.
