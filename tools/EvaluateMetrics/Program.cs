@@ -31,12 +31,15 @@ record class PipelineConfig
 {
     public bool EnableYoloV8 { get; init; } = true;
     public bool EnableDetr { get; init; } = true;
-    public string Strategy { get; init; } = "SequentialFallback"; // or Parallel
+    public string Strategy { get; init; } = "SequentialFallback"; // or Parallel/Ensemble
     public float YoloConfidenceThreshold { get; init; } = 0.6f;
     public float YoloNmsIoU { get; init; } = 0.3f;
     public float DetrConfidenceThreshold { get; init; } = 0.3f;
     public int FallbackFp { get; init; } = 2;
     public int FallbackFn { get; init; } = 0;
+    public float EceDetr { get; init; } = 1.0f;
+    public float EceYolo { get; init; } = 1.0f;
+    public float EnsembleThreshold { get; init; } = 0.5f;
 }
 
 class Program
@@ -87,6 +90,9 @@ class Program
                 case "yoloConfidenceThreshold": cfg = cfg with { YoloConfidenceThreshold = float.Parse(val,CultureInfo.InvariantCulture) }; break;
                 case "yoloNmsIoU": cfg = cfg with { YoloNmsIoU = float.Parse(val,CultureInfo.InvariantCulture) }; break;
                 case "detrConfidenceThreshold": cfg = cfg with { DetrConfidenceThreshold = float.Parse(val,CultureInfo.InvariantCulture) }; break;
+                case "eceDetr": cfg = cfg with { EceDetr = float.Parse(val,CultureInfo.InvariantCulture) }; break;
+                case "eceYolo": cfg = cfg with { EceYolo = float.Parse(val,CultureInfo.InvariantCulture) }; break;
+                case "ensembleThreshold": cfg = cfg with { EnsembleThreshold = float.Parse(val,CultureInfo.InvariantCulture) }; break;
             }
         }
 
