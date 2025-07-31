@@ -7,15 +7,16 @@ namespace SignatureDetectionSdk;
 public static class SoftVotingEnsemble
 {
     public static float[][] Combine(IList<float[]> yolo, IList<float[]> detr,
-        float eceYolo, float eceDetr, float threshold)
+        float eceYolo, float eceDetr, float threshold,
+        float minAspect = 0f, float maxAspect = float.PositiveInfinity)
     {
-        static bool Valid(float[] b)
+        bool Valid(float[] b)
         {
             float w = b[2] - b[0];
             float h = b[3] - b[1];
             if (h <= 0) return false;
             float ar = w / h;
-            return ar >= 0.5f && ar <= 4.0f;
+            return ar >= minAspect && ar <= maxAspect;
         }
 
         var all = new List<float[]>(yolo.Count + detr.Count);

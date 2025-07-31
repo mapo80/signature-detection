@@ -18,7 +18,12 @@ public record PipelineConfig(
     float EceYolo = 1.0f,
     float EnsembleThreshold = 0.5f,
     float HighScore = 0.75f,
-    int RoiBatchSize = 4
+    int RoiBatchSize = 4,
+    bool EnableShapeRoiV2 = false,
+    float FpWindowThreshold = 0.05f,
+    int MinRoiBatchSize = 2,
+    float PercentileShapeLow = 0.02f,
+    float PercentileShapeHigh = 0.98f
 );
 
 public class DetectionPipeline : IDisposable
@@ -26,6 +31,10 @@ public class DetectionPipeline : IDisposable
     private readonly PipelineConfig _config;
     private readonly YoloV8Detector? _yolo;
     private readonly SignatureDetector? _detr;
+    private readonly Queue<int> _fpWindow = new();
+    private readonly List<float> _aspectHistory = new();
+    private float _shapeLow = 0.5f, _shapeHigh = 4f;
+    private float _fpRatio;
 
     public DetectionPipeline(string detrModel, string yoloModel, PipelineConfig? config = null)
     {
@@ -53,37 +62,64 @@ public class DetectionPipeline : IDisposable
         if (_config.EnableDetr && _detr != null)
             detrPreds.AddRange(_detr.Predict(pre, _config.DetrConfidenceThreshold));
 
-        List<float[]> final = new();
+        if (_config.EnableShapeRoiV2 && groundTruth != null)
+        {
+            foreach (var g in groundTruth)
+            {
+                float w = g[2] - g[0];
+                float h = g[3] - g[1];
+                if (h > 0) _aspectHistory.Add(w / h);
+            }
+            _shapeLow = Percentile(_aspectHistory, _config.PercentileShapeLow);
+            _shapeHigh = Percentile(_aspectHistory, _config.PercentileShapeHigh);
+        }
+
+        float[][] result;
         bool both = _config.EnableYoloV8 && _config.EnableDetr;
         bool useEnsemble = both && (_config.Strategy.Equals("Ensemble", StringComparison.OrdinalIgnoreCase)
             || _config.Strategy.StartsWith("Parallel", StringComparison.OrdinalIgnoreCase));
 
         if (useEnsemble)
         {
+            float minA = _config.EnableShapeRoiV2 ? _shapeLow : 0f;
+            float maxA = _config.EnableShapeRoiV2 ? _shapeHigh : float.PositiveInfinity;
             var combined = SoftVotingEnsemble.Combine(yoloPreds, detrPreds,
-                _config.EceYolo, _config.EceDetr, _config.EnsembleThreshold);
-            final.AddRange(ApplyRoiFallback(combined, pre));
+                _config.EceYolo, _config.EceDetr, _config.EnsembleThreshold,
+                minA, maxA);
+            result = combined;
+            if (_config.EnableShapeRoiV2 && _fpRatio > _config.FpWindowThreshold)
+                result = ApplyRoiFallback(result, pre);
         }
         else if (both)
         {
             var primary = yoloPreds;
             var secondary = detrPreds;
-            final.AddRange(primary);
+            result = primary.ToArray();
             if (groundTruth != null && (CountFp(primary, groundTruth) > _config.FallbackFp ||
                                        CountFn(primary, groundTruth) > _config.FallbackFn))
             {
-                final.AddRange(secondary);
+                result = result.Concat(secondary).ToArray();
             }
         }
         else if (_config.EnableYoloV8)
         {
-            final.AddRange(yoloPreds);
+            result = yoloPreds.ToArray();
         }
         else if (_config.EnableDetr)
         {
-            final.AddRange(detrPreds);
+            result = detrPreds.ToArray();
         }
-        return final.ToArray();
+        else result = Array.Empty<float[]>();
+
+        if (groundTruth != null)
+        {
+            int fp = CountFp(result, groundTruth);
+            _fpWindow.Enqueue(fp);
+            if (_fpWindow.Count > 50) _fpWindow.Dequeue();
+            _fpRatio = _fpWindow.Sum() / (float)_fpWindow.Count;
+        }
+
+        return result;
     }
 
     private float[][] ApplyRoiFallback(float[][] boxes, SKBitmap image)
@@ -97,6 +133,11 @@ public class DetectionPipeline : IDisposable
             else if (b[4] >= _config.EnsembleThreshold) borderline.Add(b);
         }
         if (borderline.Count == 0) return accepted.ToArray();
+        if (borderline.Count < _config.MinRoiBatchSize)
+        {
+            accepted.AddRange(borderline);
+            return accepted.ToArray();
+        }
 
         for (int i = 0; i < borderline.Count; i += _config.RoiBatchSize)
         {
@@ -186,6 +227,17 @@ public class DetectionPipeline : IDisposable
         float areaB = MathF.Max(0, b[2] - b[0]) * MathF.Max(0, b[3] - b[1]);
         float union = areaA + areaB - inter;
         return union > 0 ? inter / union : 0f;
+    }
+
+    private static float Percentile(IList<float> data, float p)
+    {
+        if (data.Count == 0) return 0f;
+        var ordered = data.OrderBy(x => x).ToArray();
+        float rank = (ordered.Length - 1) * p;
+        int l = (int)MathF.Floor(rank);
+        int u = (int)MathF.Ceiling(rank);
+        if (l == u) return ordered[l];
+        return ordered[l] + (rank - l) * (ordered[u] - ordered[l]);
     }
 }
 

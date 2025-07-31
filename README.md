@@ -352,6 +352,27 @@ Gli istogrammi delle IoU e dei tempi sono salvati come stringhe Base64 in `histo
 | **IoU medio finale**                            | IoU medio delle box accettate                         | 0.91 |
 
 
+
+### Metriche per Shape-Prior + Batch ROI-Fallback v2
+
+| Indicatore                                     | Descrizione                                                                  | Valore |
+|------------------------------------------------|------------------------------------------------------------------------------|-------:|
+| **Shape Low/High (actual)**                    | Bound adattivi calcolati sul dataset (es. 0.35 / 5.8)                        | XXX |
+| **FP_ratio_50img**                             | Falsi positivi sulle ultime 50 immagini                                      | 0.XX |
+| **ROI fallback attivato**                      | `true / false` in base al superamento di `FpWindowThreshold`                 | ✔ / ✖ |
+| **ROI batch totali**                           | Quante volte è stato lanciato DETR sui crop                                  | XXX |
+| **ROI batch medie/crop**                       | Crop medie per batch (misura l’efficacia del raggruppamento)                 | X.X |
+| **Δ FP dopo Shape-Prior v2**                   | Riduzione FP rispetto all’ensemble puro                                      | XXX |
+| **Precision post Shape-Prior v2**              | Precision dopo filtro forma adattivo                                         | 0.XX |
+| **Recall post Shape-Prior v2**                 | Recall dopo filtro forma adattivo                                            | 0.XX |
+| **Δ FN recuperati dal ROI-fallback v2**        | FN trasformati in TP grazie a DETR sui crop                                  | ±XX |
+| **Tempo medio ROI-batch (ms)**                 | Latenza media per batch DETR sui crop                                         | XX |
+| **Tempo totale pipeline v2 (ms)**              | Latenza complessiva con blocco v2 attivo                                      | XXX |
+| **FPS effettivi v2**                           | 1 / Tempo totale                                                             | X.X |
+| **Precision finale v2**                        | Precision dopo filtro + ROI-fallback v2                                      | 0.XX |
+| **Recall finale v2**                           | Recall finale dopo filtro + ROI-fallback v2                                  | 0.XX |
+| **F1-score finale v2**                         | F1 finale                                                                    | 0.XX |
+
 ## ONNX quantization
 
 Dynamic quantization was tested using **onnxruntime 1.17.3**. Because the CPU provider does not support `ConvInteger`, only `MatMul` operators were quantized. The command used was:
