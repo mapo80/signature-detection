@@ -392,6 +392,96 @@ Gli istogrammi delle IoU e dei tempi sono salvati come stringhe Base64 in `histo
 
 L'istogramma dei tempi della pipeline v2  salvato in `histograms/shapev2_time.png.base64`.
 
+## 🔍 Analisi Comparativa Dettagliata delle Pipeline
+
+Di seguito la lettura approfondita di **tutti** i risultati sperimentali, con
+pro / contro e raccomandazioni operative.
+
+---
+
+### 1. Panoramica “qualità ⇄ velocità”
+
+| Modalità                         | Precision | Recall | F1  | FPS | Note sintetiche                                  |
+|---------------------------------|-----------|--------|-----|-----|--------------------------------------------------|
+| **Sequenziale (Fallback)**      | 0.79      | **0.97** | 0.87 | **5.0** | Più veloce, FP moderati, un solo FN.             |
+| **Parallela · Intersezione**    | 0.80      | 0.95   | 0.87 | 2.7 | FP↓ vs Seq., latenza ×1.9.                       |
+| **Parallela · Unione**          | 0.50      | **1.00** | 0.67 | 2.7 | Recall perfetto ma FP esplodono.                 |
+| **Ensemble Soft-Voting**        | 0.85      | 0.98   | **0.91** | 2.6 | Miglior F1 complessivo, FP = 15.                 |
+| **Shape + ROI-FB v1**           | **1.00**  | 0.33   | 0.50 | 2.4 | Precision perfetta, recall disastroso.           |
+| **Shape + ROI-FB v2 (877 ms)**  | **1.00**  | 0.88   | 0.93 | 1.1 | Zero FP, 12 % firme perse, latenza ×4.4.         |
+| **Shape + ROI-FB v2* (top-5 %)**| 0.67      | 0.08   | 0.14 | 0.8 | Parametri estremi: peggiora molto.               |
+
+---
+
+### 2. Osservazioni chiave
+
+1. **Ensemble Soft-Voting**  
+   *   +15 pp di Precision rispetto al sequenziale, con **recall quasi invariato** (0.98).  
+   *   FP dimezzati (15) e un solo FN ⇒ miglior “all-rounder”.  
+   *   Costo latency +180 ms rispetto a sequenziale (380 ms tot).
+
+2. **Sequenziale (Fallback)**  
+   *   Massimo throughput (200 ms) grazie al fallback su sole 20 immagini.  
+   *   FP 30/100 immagini (≈0.30 FP/img) ma recall eccellente.  
+   *   Ideale per ambienti “fast-path” dove qualche FP è tollerabile.
+
+3. **Parallela**  
+   *   Intersezione = leggero boost precision (0.80) ma quasi nessun vantaggio rispetto all’Ensemble.  
+   *   Unione = recall 1.00 ma precision a picco (0.50) ⇒ sconsigliata.
+
+4. **Shape-Prior + ROI-Fallback v1**  
+   *   Filtro aspect-ratio troppo stretto: recall collassa a 0.33, F1 0.50.  
+
+5. **Shape-Prior + ROI-Fallback v2 (fixed range 0.3–6.0)**  
+   *   Precision 1.00, recall 0.88, F1 0.93 → **miglior qualità globale**.  
+   *   Latenza 877 ms ⇒ throughput 1 FPS: accettabile solo in batch offline.
+
+6. **Shape-Prior + ROI-Fallback v2\*** (top-5 % ROI dinamica)  
+   *   Parametri estremi (UncertainQuantile 0.05) portano recall all’8 % – peggiore di tutti.  
+   *   Conferma che ROI-fallback deve essere dosato con cura.
+
+---
+
+### 3. Trade-off FP / FN
+
+| Modalità | FP totali | FN totali | Commento |
+|----------|----------:|----------:|----------|
+| Sequenziale          | 30 | **1** | una firma persa, FP moderati |
+| Parallela ∩          | 20 | **1** | 33 % FP in meno vs Seq.      |
+| Ensemble Soft-Voting | 15 | **1** | 50 % FP in meno vs Seq.      |
+| Shape v2             | **0** | 12  | zero FP, ma 12 FN (12 %)     |
+
+---
+
+### 4. mAP e Localizzazione
+
+* mAP@[0.50:0.95] cresce leggermente da 0.67 (Seq.) → 0.72 (Ensemble).  
+* IoU medio migliora da 0.85 → 0.88 con l’Ensemble, e 0.91 quando rimangono pochissime box (Shape v1).  
+* Significa che l’Ensemble non degrada la precisione dei contorni, anzi la affina.
+
+---
+
+### 5. Scenari di utilizzo consigliati
+
+| Scenari operativi          | Modalità consigliata | Motivazione                         |
+|----------------------------|----------------------|-------------------------------------|
+| **Realtime (≥ 4 FPS)**     | **Sequenziale**      | 200 ms/img, recall 0.97, FP tollerabili |
+| **Quality-first online**   | **Ensemble**         | F1 0.91, FP = 15, latency 380 ms      |
+| **Zero-FP batch offline**  | **Shape v2**         | Precision 1.00, recall 0.88, latenza non critica |
+
+---
+
+### 6. Raccomandazioni finali
+
+1. **Produzione standard** → attiva per default **Ensemble Soft-Voting**.  
+2. **Switch fast-path** → mantieni la logica Sequenziale se la coda cresce.  
+3. **Batch verifiche** → off-hours passa l’intero set con Shape v2 per audit “no-FP”.  
+4. **Monitoraggio** → logga FP_ratio_50img e fallback_ratio:  
+   * se `FP_ratio_50img > 0.05` ⇒ alza EnsembleThreshold (0.60).  
+   * se `fallback_ratio > 0.3` ⇒ abbassa YoloConfidence (0.55) o rivedi dataset.
+
+---
+
 ## ONNX quantization
 
 Dynamic quantization was tested using **onnxruntime 1.17.3**. Because the CPU provider does not support `ConvInteger`, only `MatMul` operators were quantized. The command used was:
