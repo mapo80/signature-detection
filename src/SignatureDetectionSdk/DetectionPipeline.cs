@@ -16,7 +16,9 @@ public record PipelineConfig(
     int FallbackFn = 0,
     float EceDetr = 1.0f,
     float EceYolo = 1.0f,
-    float EnsembleThreshold = 0.5f
+    float EnsembleThreshold = 0.5f,
+    float HighScore = 0.75f,
+    int RoiBatchSize = 4
 );
 
 public class DetectionPipeline : IDisposable
@@ -58,8 +60,9 @@ public class DetectionPipeline : IDisposable
 
         if (useEnsemble)
         {
-            final.AddRange(SoftVotingEnsemble.Combine(yoloPreds, detrPreds,
-                _config.EceYolo, _config.EceDetr, _config.EnsembleThreshold));
+            var combined = SoftVotingEnsemble.Combine(yoloPreds, detrPreds,
+                _config.EceYolo, _config.EceDetr, _config.EnsembleThreshold);
+            final.AddRange(ApplyRoiFallback(combined, pre));
         }
         else if (both)
         {
@@ -81,6 +84,60 @@ public class DetectionPipeline : IDisposable
             final.AddRange(detrPreds);
         }
         return final.ToArray();
+    }
+
+    private float[][] ApplyRoiFallback(float[][] boxes, SKBitmap image)
+    {
+        if (_detr == null) return boxes;
+        var accepted = new List<float[]>();
+        var borderline = new List<float[]>();
+        foreach (var b in boxes)
+        {
+            if (b[4] >= _config.HighScore) accepted.Add(b);
+            else if (b[4] >= _config.EnsembleThreshold) borderline.Add(b);
+        }
+        if (borderline.Count == 0) return accepted.ToArray();
+
+        for (int i = 0; i < borderline.Count; i += _config.RoiBatchSize)
+        {
+            var batch = borderline.Skip(i).Take(_config.RoiBatchSize).ToList();
+            var crops = new List<SKBitmap>();
+            var rects = new List<SKRect>();
+            foreach (var b in batch)
+            {
+                float x1 = b[0], y1 = b[1], x2 = b[2], y2 = b[3];
+                float w = x2 - x1, h = y2 - y1;
+                float ex = w * 0.1f, ey = h * 0.1f;
+                float rx1 = MathF.Max(0, x1 - ex);
+                float ry1 = MathF.Max(0, y1 - ey);
+                float rx2 = MathF.Min(image.Width, x2 + ex);
+                float ry2 = MathF.Min(image.Height, y2 + ey);
+                var rect = SKRect.Create(rx1, ry1, rx2 - rx1, ry2 - ry1);
+                rects.Add(rect);
+                var crop = new SKBitmap((int)rect.Width, (int)rect.Height);
+                using var canvas = new SKCanvas(crop);
+                canvas.DrawBitmap(image, rect, new SKRect(0, 0, rect.Width, rect.Height));
+                crops.Add(crop);
+            }
+
+            var dets = _detr.PredictBatch(crops, _config.DetrConfidenceThreshold);
+            for (int j = 0; j < batch.Count; j++)
+            {
+                bool ok = false;
+                foreach (var p in dets[j])
+                {
+                    float ax1 = rects[j].Left + p[0];
+                    float ay1 = rects[j].Top + p[1];
+                    float ax2 = rects[j].Left + p[2];
+                    float ay2 = rects[j].Top + p[3];
+                    var tmp = new[] { ax1, ay1, ax2, ay2 };
+                    if (IoU(batch[j], tmp) >= 0.5f) { ok = true; break; }
+                }
+                if (ok) accepted.Add(batch[j]);
+            }
+            foreach (var c in crops) c.Dispose();
+        }
+        return accepted.ToArray();
     }
 
     private static int CountFp(IEnumerable<float[]> preds, IList<float[]> gts)

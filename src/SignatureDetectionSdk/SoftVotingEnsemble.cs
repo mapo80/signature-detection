@@ -9,14 +9,23 @@ public static class SoftVotingEnsemble
     public static float[][] Combine(IList<float[]> yolo, IList<float[]> detr,
         float eceYolo, float eceDetr, float threshold)
     {
+        static bool Valid(float[] b)
+        {
+            float w = b[2] - b[0];
+            float h = b[3] - b[1];
+            if (h <= 0) return false;
+            float ar = w / h;
+            return ar >= 0.5f && ar <= 4.0f;
+        }
+
         var all = new List<float[]>(yolo.Count + detr.Count);
-        foreach (var p in yolo)
+        foreach (var p in yolo.Where(Valid))
         {
             var c = (float[])p.Clone();
             c[4] *= eceYolo;
             all.Add(c);
         }
-        foreach (var p in detr)
+        foreach (var p in detr.Where(Valid))
         {
             var c = (float[])p.Clone();
             c[4] *= eceDetr;

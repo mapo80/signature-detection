@@ -328,6 +328,30 @@ Parametri utilizzati: `EceDetr=1.0`, `EceYolo=1.0`, `EnsembleThreshold=0.5`.
 Gli istogrammi delle IoU e dei tempi sono salvati come stringhe Base64 in `histograms/ensemble_iou.png.base64` e `histograms/ensemble_time.png.base64`. Un esempio di immagine risultante è in `histograms/ensemble_example.png.base64`.
 
 
+### Metriche per Shape-Prior + Batch ROI-Fallback
+
+| Indicatore                                      | Descrizione                                           | Valore |
+|-------------------------------------------------|-------------------------------------------------------|-------:|
+| **Box filtrate dallo Shape-Prior**              | Numero totale di predizioni scartate perché fuori dal range di aspect-ratio [0.5 – 4.0] | 96 |
+| **Δ FP dopo Shape-Prior**                       | Riduzione dei falsi positivi rispetto all’ensemble “puro” | 0 |
+| **Precision post Shape-Prior**                  | Precisione calcolata subito dopo il filtro di forma   | 0.89 |
+| **Recall post Shape-Prior**                     | Recall calcolato subito dopo il filtro di forma       | 0.44 |
+| **ROI inviate a DETR fallback**                 | Numero totale di crop “borderline” processate da DETR | 3 |
+| **ROI confermate (TP)**                         | Quante ROI sono state confermate da DETR              | 0 |
+| **ROI scartate (FP)**                           | Quante ROI sono state rifiutate da DETR               | 3 |
+| **Tasso successo ROI**                          | ROI confermate / ROI totali                           | 0.00 |
+| **Δ FN recuperati dal ROI-fallback**            | Riduzione degli FN grazie alle conferme DETR          | -2 |
+| **Lat. media DETR ROI**                         | Tempo medio (ms) per batch ROI su DETR                | 229 ms |
+| **Tempo totale ensemble + ROI**                 | Latenza complessiva (ensemble + fallback)             | 423 ms |
+| **FPS effettivi finali**                        | 1 / (Tempo totale)                                    | 2.4 |
+| **Precision finale**                            | Precisione dopo filtro forma **e** ROI-fallback       | 1.00 |
+| **Recall finale**                               | Recall dopo filtro forma **e** ROI-fallback           | 0.33 |
+| **F1-score finale**                             | F1 dopo filtro forma **e** ROI-fallback               | 0.50 |
+| **mAP@0.50 finale**                             | mAP a IoU 0.50 con pipeline completa                  | 0.33 |
+| **mAP@[0.50:0.95] finale**                      | mAP media 0.50–0.95 con pipeline completa             | 0.31 |
+| **IoU medio finale**                            | IoU medio delle box accettate                         | 0.91 |
+
+
 ## ONNX quantization
 
 Dynamic quantization was tested using **onnxruntime 1.17.3**. Because the CPU provider does not support `ConvInteger`, only `MatMul` operators were quantized. The command used was:
