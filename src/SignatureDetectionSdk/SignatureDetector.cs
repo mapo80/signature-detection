@@ -30,6 +30,8 @@ public class SignatureDetector : IDisposable
 
     public float[][] Predict(SKBitmap image, float scoreThreshold = 0.1f)
     {
+        int origWidth = image.Width;
+        int origHeight = image.Height;
         using var resized = image.Resize(new SKImageInfo(InputSize, InputSize), SKFilterQuality.High);
         var tensor = new DenseTensor<float>(new[] {1, 3, InputSize, InputSize});
 
@@ -64,10 +66,10 @@ public class SignatureDetector : IDisposable
             float cy = boxes[i*4 + 1];
             float w = boxes[i*4 + 2];
             float h = boxes[i*4 + 3];
-            float x1 = (cx - w/2) * resized.Width;
-            float y1 = (cy - h/2) * resized.Height;
-            float x2 = (cx + w/2) * resized.Width;
-            float y2 = (cy + h/2) * resized.Height;
+            float x1 = (cx - w/2) * origWidth;
+            float y1 = (cy - h/2) * origHeight;
+            float x2 = (cx + w/2) * origWidth;
+            float y2 = (cy + h/2) * origHeight;
             detections.Add(new[]{x1,y1,x2,y2,score});
         }
         return detections.ToArray();
@@ -77,8 +79,12 @@ public class SignatureDetector : IDisposable
     {
         int batch = images.Count;
         var tensor = new DenseTensor<float>(new[] { batch, 3, InputSize, InputSize });
+        var widths = new int[batch];
+        var heights = new int[batch];
         for (int b = 0; b < batch; b++)
         {
+            widths[b] = images[b].Width;
+            heights[b] = images[b].Height;
             using var resized = images[b].Resize(new SKImageInfo(InputSize, InputSize), SKFilterQuality.High);
             for (int y = 0; y < InputSize; y++)
             {
@@ -115,10 +121,10 @@ public class SignatureDetector : IDisposable
                 float cy = boxesT[b, i, 1];
                 float w = boxesT[b, i, 2];
                 float h = boxesT[b, i, 3];
-                float x1 = (cx - w / 2) * InputSize;
-                float y1 = (cy - h / 2) * InputSize;
-                float x2 = (cx + w / 2) * InputSize;
-                float y2 = (cy + h / 2) * InputSize;
+                float x1 = (cx - w / 2) * widths[b];
+                float y1 = (cy - h / 2) * heights[b];
+                float x2 = (cx + w / 2) * widths[b];
+                float y2 = (cy + h / 2) * heights[b];
                 list.Add(new[] { x1, y1, x2, y2, score });
             }
             detections[b] = list.ToArray();
